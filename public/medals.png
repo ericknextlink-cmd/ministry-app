@@ -1,0 +1,26 @@
+<svg width="600" height="300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Red/Pink Badge -->
+  <g transform="translate(50, 150)">
+    <circle cx="0" cy="0" r="80" fill="#E74C3C"/>
+    <text x="0" y="10" font-size="16" font-weight="bold" fill="white" text-anchor="middle">CERTIFIED</text>
+    <rect x="-20" y="60" width="15" height="80" fill="#8B0000"/>
+    <rect x="5" y="60" width="15" height="80" fill="#8B0000"/>
+  </g>
+  
+  <!-- Orange Badge -->
+  <g transform="translate(250, 150)">
+    <circle cx="0" cy="0" r="80" fill="#F39C12"/>
+    <text x="0" y="10" font-size="16" font-weight="bold" fill="white" text-anchor="middle">CERTIFIED</text>
+    <rect x="-20" y="60" width="15" height="80" fill="#8B4500"/>
+    <rect x="5" y="60" width="15" height="80" fill="#8B4500"/>
+  </g>
+  
+  <!-- Green Badge -->
+  <g transform="translate(450, 150)">
+    <circle cx="0" cy="0" r="80" fill="#9ACD32"/>
+    <text x="0" y="10" font-size="16" font-weight="bold" fill="white" text-anchor="middle">CERTIFIED</text>
+    <rect x="-20" y="60" width="15" height="80" fill="#556B2F"/>
+    <rect x="5" y="60" width="15" height="80" fill="#556B2F"/>
+  </g>
+</svg>
+

@@ -1,0 +1,16 @@
+<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" fill="white"/>
+  <rect x="10" y="10" width="40" height="40" fill="black"/>
+  <rect x="60" y="10" width="10" height="10" fill="black"/>
+  <rect x="80" y="10" width="20" height="20" fill="black"/>
+  <rect x="150" y="10" width="40" height="40" fill="black"/>
+  <rect x="10" y="60" width="10" height="10" fill="black"/>
+  <rect x="30" y="60" width="20" height="20" fill="black"/>
+  <rect x="150" y="60" width="10" height="10" fill="black"/>
+  <rect x="10" y="150" width="40" height="40" fill="black"/>
+  <rect x="60" y="150" width="20" height="20" fill="black"/>
+  <rect x="100" y="150" width="30" height="30" fill="black"/>
+  <rect x="150" y="150" width="40" height="40" fill="black"/>
+  <text x="100" y="105" font-size="12" text-anchor="middle" fill="gray">QR Code</text>
+</svg>
+

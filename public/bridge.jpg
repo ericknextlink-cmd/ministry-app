@@ -1,0 +1,19 @@
+<svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Sky -->
+  <rect width="800" height="400" fill="#87CEEB"/>
+  
+  <!-- Water -->
+  <rect y="400" width="800" height="200" fill="#4682B4"/>
+  
+  <!-- Bridge -->
+  <path d="M 100 450 Q 400 350, 700 450" stroke="#C0C0C0" stroke-width="40" fill="none"/>
+  <path d="M 100 450 Q 400 380, 700 450" stroke="#A9A9A9" stroke-width="20" fill="none"/>
+  
+  <!-- Support -->
+  <rect x="390" y="350" width="20" height="100" fill="#696969"/>
+  
+  <!-- Trees -->
+  <circle cx="150" cy="480" r="30" fill="#228B22"/>
+  <circle cx="650" cy="480" r="30" fill="#228B22"/>
+</svg>
+

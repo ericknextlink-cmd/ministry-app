@@ -1,0 +1,17 @@
+<svg width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+  <!-- Certificate background -->
+  <rect x="10" y="5" width="60" height="70" rx="3" fill="#FFD700" stroke="#C5A653" stroke-width="2"/>
+  
+  <!-- Ribbon -->
+  <rect x="35" y="50" width="10" height="30" fill="#E53935"/>
+  <polygon points="35,75 40,70 45,75" fill="#C62828"/>
+  
+  <!-- Star -->
+  <polygon points="40,20 43,28 52,28 45,33 48,42 40,36 32,42 35,33 28,28 37,28" fill="#C5A653"/>
+  
+  <!-- Lines -->
+  <line x1="20" y1="15" x2="60" y2="15" stroke="#C5A653" stroke-width="1"/>
+  <line x1="20" y1="25" x2="60" y2="25" stroke="#C5A653" stroke-width="1"/>
+  <line x1="20" y1="45" x2="60" y2="45" stroke="#C5A653" stroke-width="1"/>
+</svg>
+
