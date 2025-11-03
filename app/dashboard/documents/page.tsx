@@ -1,19 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Upload, X, Eye, CheckCircle2, XCircle, Trash2 } from "lucide-react";
+import { CheckCircle2, XCircle, Trash2, Eye } from "lucide-react";
 import { toast } from "sonner";
 
 interface DocumentFile {
   id: string;
   name: string;
   file: File | null;
+  fileName: string;
   status: "uploaded" | "not-uploaded";
 }
 
@@ -21,19 +22,23 @@ export default function DocumentsPage() {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   
   const [documents, setDocuments] = useState<DocumentFile[]>([
-    { id: "1", name: "Incorporation Certificate", file: null, status: "not-uploaded" },
-    { id: "2", name: "Form 3 or Form A", file: null, status: "not-uploaded" },
-    { id: "3", name: "Ghana Card", file: null, status: "not-uploaded" },
+    { id: "1", name: "Incorporation Certificate", file: null, fileName: "Incorporation Certificate.pdf", status: "uploaded" },
+    { id: "2", name: "Form 3 or Form A", file: null, fileName: "Form 3.jpg", status: "uploaded" },
+    { id: "3", name: "Ghana Card", file: null, fileName: "", status: "not-uploaded" },
   ]);
 
-  const handleFileChange = (id: string, file: File | null) => {
-    setDocuments(
-      documents.map((doc) =>
-        doc.id === id ? { ...doc, file, status: file ? "not-uploaded" : "not-uploaded" } : doc
-      )
-    );
+  const handleFileChange = (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    if (file) {
+      setDocuments(
+        documents.map((doc) =>
+          doc.id === id ? { ...doc, file, fileName: file.name, status: "not-uploaded" } : doc
+        )
+      );
+    }
   };
 
   const handleUpload = (id: string) => {
@@ -57,16 +62,26 @@ export default function DocumentsPage() {
   const handleRemove = (id: string) => {
     setDocuments(
       documents.map((doc) =>
-        doc.id === id ? { ...doc, file: null, status: "not-uploaded" } : doc
+        doc.id === id ? { ...doc, file: null, fileName: "", status: "not-uploaded" } : doc
       )
     );
+    // Reset file input
+    if (fileInputRefs.current[id]) {
+      fileInputRefs.current[id]!.value = "";
+    }
     toast.success("File removed");
   };
 
   const handleView = (id: string) => {
     const document = documents.find((doc) => doc.id === id);
     if (document?.file) {
+      // Create object URL for preview
+      const url = URL.createObjectURL(document.file);
+      window.open(url, "_blank");
       toast.info(`Viewing ${document.name}`);
+    } else if (document?.status === "uploaded") {
+      toast.info(`Viewing ${document.name}`);
+      // In a real app, you'd fetch the file from the server
     }
   };
 
@@ -85,13 +100,6 @@ export default function DocumentsPage() {
     router.push("/dashboard/review");
   };
 
-  const handleInputFileChange = (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
-    if (file) {
-      handleFileChange(id, file);
-    }
-  };
-
   return (
     <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-900">
       <DashboardSidebar
@@ -105,8 +113,13 @@ export default function DocumentsPage() {
         <DashboardHeader onMenuClick={() => setSidebarOpen(true)} />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          <div className="max-w-4xl mx-auto">
-            <h1 className="mb-8 text-3xl font-bold text-gray-900 dark:text-gray-100">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-6"
+          >
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
               Upload Documents
             </h1>
 
@@ -117,117 +130,111 @@ export default function DocumentsPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="space-y-4 rounded-lg border bg-white p-6 dark:bg-gray-950"
+                  className="space-y-4"
                 >
-                  <Label className="text-lg font-semibold">{document.name}</Label>
-                  
-                  {/* Upload Area */}
+                  <Label className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                    {document.name}
+                  </Label>
+
+                  {/* File Upload Bar */}
                   <div className="flex items-center gap-4">
-                    {/* Choose File Button */}
-                    <label className="cursor-pointer">
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => handleInputFileChange(document.id, e)}
-                      />
+                    {/* Horizontal Bar Container */}
+                    <div className="flex flex-1 items-center rounded-full border-2 border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-950 overflow-hidden">
+                      {/* Choose File Button (Left) */}
+                      <label className="cursor-pointer">
+                        <input
+                          ref={(el) => { fileInputRefs.current[document.id] = el; }}
+                          type="file"
+                          className="hidden"
+                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                          onChange={(e) => handleFileChange(document.id, e)}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="h-12 rounded-l-full rounded-r-none bg-gray-100 hover:bg-gray-200 dark:bg-gray-900 dark:hover:bg-gray-800 px-6"
+                        >
+                          Choose File
+                        </Button>
+                      </label>
+
+                      {/* File Name Display (Middle) */}
+                      <div className="flex-1 px-4 py-3">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {document.fileName || "No file chosen"}
+                        </span>
+                      </div>
+
+                      {/* Upload Button (Right) */}
                       <Button
                         type="button"
-                        variant="outline"
-                        className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-900 dark:hover:bg-gray-800"
+                        onClick={() => handleUpload(document.id)}
+                        disabled={document.status === "uploaded" || !document.file}
+                        className={`h-12 rounded-l-none rounded-r-full px-6 ${
+                          document.status === "uploaded"
+                            ? "border border-gray-300 bg-white text-gray-900 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:hover:bg-gray-900"
+                            : "bg-[#033783] text-white hover:bg-[#022555]"
+                        }`}
                       >
-                        <Upload className="mr-2 h-4 w-4" />
-                        Choose File
+                        Upload
                       </Button>
-                    </label>
-
-                    {/* File Name Display */}
-                    <div className="flex-1 rounded-md border bg-gray-50 px-4 py-3 dark:bg-gray-900">
-                      <span className="text-sm text-gray-700 dark:text-gray-300">
-                        {document.file ? document.file.name : `No file chosen`}
-                      </span>
                     </div>
 
-                    {/* Upload Button */}
-                    <Button
-                      type="button"
-                      variant={document.status === "uploaded" ? "outline" : "default"}
-                      onClick={() => handleUpload(document.id)}
-                      disabled={document.status === "uploaded" || !document.file}
-                      className={
-                        document.status === "uploaded"
-                          ? "border-green-600 text-green-600 hover:bg-green-50"
-                          : ""
-                      }
-                    >
-                      Upload
-                    </Button>
-
-                    {/* Status */}
-                    <div className="flex items-center gap-2">
+                    {/* Status Display (Right of bar) */}
+                    <div className="flex items-center gap-2 min-w-[200px]">
                       {document.status === "uploaded" ? (
-                        <span className="flex items-center gap-2 text-sm text-green-600">
-                          <CheckCircle2 className="h-5 w-5" />
-                          Uploaded Successfully
-                        </span>
+                        <>
+                          <CheckCircle2 className="h-6 w-6 text-green-600" />
+                          <span className="text-sm font-medium text-green-600">
+                            Uploaded Successfully
+                          </span>
+                        </>
                       ) : (
-                        <span className="flex items-center gap-2 text-sm text-red-600">
-                          <XCircle className="h-5 w-5" />
-                          File Not Uploaded
-                        </span>
+                        <>
+                          <XCircle className="h-6 w-6 text-red-600" />
+                          <span className="text-sm font-medium text-red-600">
+                            File Not Uploaded
+                          </span>
+                        </>
                       )}
                     </div>
                   </div>
 
-                  {/* Action Buttons */}
-                  {(document.file || document.status === "uploaded") && (
-                    <div className="flex gap-4">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemove(document.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Remove
-                      </Button>
-                      {document.status === "uploaded" && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleView(document.id)}
-                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
-                        >
-                          <Eye className="mr-2 h-4 w-4" />
-                          View
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                  {/* Remove and View Links (Below bar) */}
+                  <div className="flex items-center gap-4 ml-2">
+                    <button
+                      type="button"
+                      onClick={() => handleRemove(document.id)}
+                      className="flex items-center gap-2 text-sm text-gray-600 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Remove
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleView(document.id)}
+                      disabled={!document.file && document.status !== "uploaded"}
+                      className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Eye className="h-4 w-4" />
+                      View
+                    </button>
+                  </div>
                 </motion.div>
               ))}
 
-              <div className="flex justify-end gap-4 pt-6">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.back()}
-                  className="px-8"
-                >
-                  Back
-                </Button>
+              {/* Submit Button */}
+              <div className="flex justify-end pt-6">
                 <Button
                   type="submit"
                   size="lg"
-                  className="rounded-full bg-blue-600 px-12 text-white hover:bg-blue-700"
+                  className="bg-[#033783] text-white hover:bg-[#022555]"
                 >
                   Next: Review & Submit
                 </Button>
               </div>
             </form>
-          </div>
+          </motion.div>
         </main>
       </div>
     </div>
