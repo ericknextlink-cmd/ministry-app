@@ -41,7 +41,7 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
     setProgress((prev) => {
       const existing = prev[applicationId];
       
-      const steps = {
+      const defaultSteps = {
         apply: false,
         "select-class": false,
         payment: false,
@@ -49,10 +49,13 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
         "directors-info": false,
         "upload-docs": false,
         review: false,
-        ...existing?.steps,
       };
 
-      steps[step] = completed;
+      const steps = {
+        ...defaultSteps,
+        ...existing?.steps,
+        [step]: completed,
+      };
 
       // Determine last completed step
       const stepOrder: ApplicationStep[] = [

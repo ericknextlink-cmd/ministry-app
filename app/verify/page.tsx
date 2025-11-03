@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -36,7 +36,7 @@ const mockCertificateData = {
   status: "valid" as VerificationStatus,
 };
 
-export default function VerifyPage() {
+function VerifyPageContent() {
   const searchParams = useSearchParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -401,5 +401,17 @@ export default function VerifyPage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function VerifyPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg text-gray-600 dark:text-gray-400">Loading...</div>
+      </div>
+    }>
+      <VerifyPageContent />
+    </Suspense>
   );
 }
