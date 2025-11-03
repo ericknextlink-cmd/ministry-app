@@ -159,7 +159,7 @@ export default function DocumentsPage() {
                       </label>
 
                       {/* File Name Display (Middle) */}
-                      <div className="flex-1 px-4 py-3">
+                      <div className="flex-1 px-4 py-3 justify-center items-center">
                         <span className="text-sm text-gray-700 dark:text-gray-300">
                           {document.fileName || "No file chosen"}
                         </span>
