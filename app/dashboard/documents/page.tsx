@@ -139,24 +139,22 @@ export default function DocumentsPage() {
                   {/* File Upload Bar */}
                   <div className="flex items-center gap-4">
                     {/* Horizontal Bar Container */}
-                    <div className="flex flex-1 items-center rounded-lg border-2 border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-950 overflow-hidden py-3">
+                    <div className="flex flex-1 items-center rounded-lg border-2 border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-950 overflow-hidden py-2">
                       {/* Choose File Button (Left) */}
-                      <label className="cursor-pointer">
-                        <input
-                          ref={(el) => { fileInputRefs.current[document.id] = el; }}
-                          type="file"
-                          className="hidden"
-                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                          onChange={(e) => handleFileChange(document.id, e)}
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="h-18 py-4 rounded-l-lg rounded-r-none bg-gray-100 hover:bg-gray-200 dark:bg-gray-900 dark:hover:bg-gray-800 px-6"
-                        >
-                          Choose File
-                        </Button>
-                      </label>
+                      <input
+                        ref={(el) => { fileInputRefs.current[document.id] = el; }}
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        onChange={(e) => handleFileChange(document.id, e)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRefs.current[document.id]?.click()}
+                        className="h-10 px-6 rounded-l-lg rounded-r-none bg-gray-100 hover:bg-gray-200 dark:bg-gray-900 dark:hover:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
+                      >
+                        Choose File
+                      </button>
 
                       {/* File Name Display (Middle) */}
                       <div className="flex-1 px-4 py-3 justify-center items-center relative left-30">
