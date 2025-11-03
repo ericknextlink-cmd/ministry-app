@@ -139,7 +139,7 @@ export default function DocumentsPage() {
                   {/* File Upload Bar */}
                   <div className="flex items-center gap-4">
                     {/* Horizontal Bar Container */}
-                    <div className="flex flex-1 items-center rounded-lg border-2 border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-950 overflow-hidden">
+                    <div className="flex flex-1 items-center rounded-lg border-2 border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-950 overflow-hidden py-4">
                       {/* Choose File Button (Left) */}
                       <label className="cursor-pointer">
                         <input
@@ -152,7 +152,7 @@ export default function DocumentsPage() {
                         <Button
                           type="button"
                           variant="ghost"
-                          className="h-12 rounded-l-full rounded-r-none bg-gray-100 hover:bg-gray-200 dark:bg-gray-900 dark:hover:bg-gray-800 px-6"
+                          className="h-12 rounded-l-lg rounded-r-none bg-gray-100 hover:bg-gray-200 dark:bg-gray-900 dark:hover:bg-gray-800 px-6"
                         >
                           Choose File
                         </Button>
@@ -170,7 +170,7 @@ export default function DocumentsPage() {
                         type="button"
                         onClick={() => handleUpload(document.id)}
                         disabled={document.status === "uploaded" || !document.file}
-                        className={`h-12 rounded-l-none rounded-r-full px-6 ${
+                        className={`h-12 rounded-l-none rounded-r-lg px-6 ${
                           document.status === "uploaded"
                             ? "border border-gray-300 bg-white text-gray-900 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:hover:bg-gray-900"
                             : "bg-[#033783] text-white hover:bg-[#022555]"
@@ -201,7 +201,7 @@ export default function DocumentsPage() {
                   </div>
 
                   {/* Remove and View Links (Below bar) */}
-                  <div className="flex items-center gap-4 ml-2">
+                  <div className="flex items-center gap-4 ml-2 justify-center">
                     <button
                       type="button"
                       onClick={() => handleRemove(document.id)}
