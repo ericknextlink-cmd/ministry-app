@@ -20,23 +20,80 @@ interface ApplicationDetailsProps {
   application: ApplicationType;
   applications: ApplicationType[];
   onApplicationChange: (appId: string) => void;
+  onSubmitApplication: () => void;
 }
 
 const certificateData = {
   "general-building": {
-    categories: ["A", "B", "C"],
-    defaultFee: "GHS 1000",
-    defaultRenewal: "GHS 500",
+    category: "DK",
+    classes: [
+      {
+        id: "D1K1",
+        label: "D1K1",
+        registration: "¢3500",
+        renewal: "¢2010",
+        financialClass: "Over $500,000",
+        requiresLLC: true,
+      },
+      {
+        id: "D2K2",
+        label: "D2K2",
+        registration: "¢2500",
+        renewal: "¢410",
+        financialClass: "$200,000 - $500,000",
+        requiresLLC: true,
+      },
+      {
+        id: "D3K3",
+        label: "D3K3",
+        registration: "¢600",
+        renewal: "¢210",
+        financialClass: "$75,000 - $200,000",
+        requiresLLC: false,
+      },
+    ],
   },
   "electrical": {
-    categories: ["D", "E", "F"],
-    defaultFee: "GHS 1500",
-    defaultRenewal: "GHS 800",
+    category: "E",
+    classes: [
+      {
+        id: "E1",
+        label: "E1",
+        registration: "¢1500",
+        renewal: "¢410",
+        financialClass: "Over $200,000",
+        requiresLLC: false,
+      },
+      {
+        id: "E2",
+        label: "E2",
+        registration: "¢1000",
+        renewal: "¢210",
+        financialClass: "$75,000 - $200,000",
+        requiresLLC: false,
+      },
+    ],
   },
   "plumbing": {
-    categories: ["G", "H", "I"],
-    defaultFee: "GHS 1200",
-    defaultRenewal: "GHS 600",
+    category: "G",
+    classes: [
+      {
+        id: "G1",
+        label: "G1",
+        registration: "¢1000",
+        renewal: "¢210",
+        financialClass: "Over $200,000",
+        requiresLLC: false,
+      },
+      {
+        id: "G2",
+        label: "G2",
+        registration: "¢400",
+        renewal: "¢50",
+        financialClass: "Up to $50,000",
+        requiresLLC: false,
+      },
+    ],
   },
 };
 
@@ -44,14 +101,20 @@ export function ApplicationDetails({
   application,
   applications,
   onApplicationChange,
+  onSubmitApplication,
 }: ApplicationDetailsProps) {
-  const [selectedClass, setSelectedClass] = useState("2");
-  const [selectedCategory, setSelectedCategory] = useState(
-    certificateData[application.id as keyof typeof certificateData]?.categories[0] || "A"
-  );
-  const [isConfirmed, setIsConfirmed] = useState(false);
-
   const certData = certificateData[application.id as keyof typeof certificateData] || certificateData["general-building"];
+  
+  const [selectedClass, setSelectedClass] = useState(certData.classes[0].id);
+  const [isConfirmed, setIsConfirmed] = useState(false);
+  
+  const handleSubmit = () => {
+    if (isConfirmed) {
+      onSubmitApplication();
+    }
+  };
+
+  const selectedClassData = certData.classes.find(c => c.id === selectedClass) || certData.classes[0];
 
   const getShapeLarge = (shape: string) => {
     return shape.replace(".svg", "-large.svg");
@@ -63,18 +126,27 @@ export function ApplicationDetails({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.3 }}
-      className="space-y-6"
+      className="space-y-4"
     >
-      {/* Certification Type and Category Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-full border bg-white px-6 py-3 shadow-sm dark:bg-gray-950">
-        <div className="flex items-center gap-2">
-          <Label className="text-sm font-medium">Certification Type :</Label>
+      {/* Certification Type and Category Bars */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* Certification Type Bar */}
+        <div className="flex items-center rounded-full border bg-white px-6 py-3 shadow-sm dark:bg-gray-950">
           <Select
             value={application.id}
-            onValueChange={onApplicationChange}
+            onValueChange={(value) => {
+              onApplicationChange(value);
+              const newCertData = certificateData[value as keyof typeof certificateData];
+              if (newCertData) {
+                setSelectedClass(newCertData.classes[0].id);
+              }
+            }}
           >
-            <SelectTrigger className="w-[200px] border-0 bg-transparent">
-              <SelectValue />
+            <SelectTrigger className="w-full border-0 bg-transparent p-0 [&>svg]:hidden">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">Certification Type:</span>
+                <SelectValue />
+              </div>
             </SelectTrigger>
             <SelectContent>
               {applications.map((app) => (
@@ -86,20 +158,12 @@ export function ApplicationDetails({
           </Select>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Label className="text-sm font-medium">Category :</Label>
-          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger className="w-[80px] border-0 bg-transparent">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {certData.categories.map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Category Bar */}
+        <div className="flex items-center rounded-full border bg-white px-6 py-3 shadow-sm dark:bg-gray-950">
+          <span className="text-sm font-medium">Category:</span>
+          <span className="ml-2 text-sm font-bold text-gray-900 dark:text-gray-100">
+            {certData.category}
+          </span>
         </div>
       </div>
 
@@ -134,24 +198,22 @@ export function ApplicationDetails({
       </motion.div>
 
       {/* Class Type Dropdown */}
-      <div className="relative">
-        <div className="flex items-center justify-between gap-4 rounded-full border bg-white px-6 py-3 shadow-sm dark:bg-gray-950">
-          <Label className="text-base font-medium">
-            Select Class Type
-          </Label>
-          <Select value={selectedClass} onValueChange={setSelectedClass}>
-            <SelectTrigger className="w-auto border-0 bg-transparent p-0 [&>svg]:hidden">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1">Class 1</SelectItem>
-              <SelectItem value="2">Class 2</SelectItem>
-              <SelectItem value="3">Class 3</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="pointer-events-none flex h-8 w-8 items-center justify-center rounded-md border-4 border-black bg-white dark:bg-gray-800">
-            <ChevronDown className="h-8 w-8" />
-          </div>
+      <div className="flex items-center justify-between rounded-full border bg-white px-6 py-3 shadow-sm dark:bg-gray-950">
+        <span className="text-base font-medium">Select Class Type</span>
+        <Select value={selectedClass} onValueChange={setSelectedClass}>
+          <SelectTrigger className="w-auto border-0 bg-transparent p-0 [&>svg]:hidden">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {certData.classes.map((classItem) => (
+              <SelectItem key={classItem.id} value={classItem.id}>
+                {classItem.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="pointer-events-none flex h-8 w-8 items-center justify-center rounded-md border-2 border-black bg-white dark:bg-gray-800">
+          <ChevronDown className="h-6 w-6" />
         </div>
       </div>
 
@@ -160,20 +222,25 @@ export function ApplicationDetails({
         <h3 className="mb-4 text-xl font-bold">Certificate Information:</h3>
         <div className="space-y-3 text-gray-700 dark:text-gray-300">
           <p>
-            <span className="font-medium">Financial Class:</span> Up to USD $50,000
+            <span className="font-medium">Financial Class:</span> {selectedClassData.financialClass}
           </p>
           <p>
-            <span className="font-medium">Class:</span> {selectedClass}
+            <span className="font-medium">Class:</span> {selectedClassData.label}
           </p>
           <p>
-            <span className="font-medium">Category:</span> {selectedCategory}
+            <span className="font-medium">Category:</span> {certData.category}
           </p>
           <p>
-            <span className="font-medium">Certification fee:</span> {certData.defaultFee}
+            <span className="font-medium">New registration:</span> {selectedClassData.registration}
           </p>
           <p>
-            <span className="font-medium">Annual Renewal fees:</span> {certData.defaultRenewal}
+            <span className="font-medium">Renewal:</span> {selectedClassData.renewal}
           </p>
+          {selectedClassData.requiresLLC && (
+            <p className="pt-2 italic text-blue-600 dark:text-blue-400">
+              * Limited Liability Company registration required
+            </p>
+          )}
         </div>
       </div>
 
@@ -198,6 +265,7 @@ export function ApplicationDetails({
         <Button
           size="lg"
           disabled={!isConfirmed}
+          onClick={handleSubmit}
           className="rounded-full bg-blue-600 px-12 text-white hover:bg-blue-700 disabled:opacity-50"
         >
           Submit

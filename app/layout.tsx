@@ -3,6 +3,7 @@ import { Montserrat } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { ApplicationProvider } from "@/contexts/ApplicationContext";
 
 
 const montserrat = Montserrat({
@@ -34,8 +35,10 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange={false}
         >
-          {children}
-          <Toaster />
+          <ApplicationProvider>
+            {children}
+            <Toaster />
+          </ApplicationProvider>
         </ThemeProvider>
       </body>
     </html>

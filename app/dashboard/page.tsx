@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
@@ -8,6 +9,7 @@ import { DashboardHeader } from "@/components/dashboard-header";
 import { ApplicationCard, ApplicationType } from "@/components/application-card";
 import { ApplicationDetails } from "@/components/application-details";
 import { Activity } from "lucide-react";
+import { useApplication } from "@/contexts/ApplicationContext";
 
 const applications: ApplicationType[] = [
   {
@@ -34,6 +36,7 @@ const applications: ApplicationType[] = [
 ];
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<string | null>(null);
@@ -44,6 +47,11 @@ export default function DashboardPage() {
 
   const handleApplicationChange = (appId: string) => {
     setSelectedApplication(appId);
+  };
+  
+  const handleSubmitApplication = () => {
+    // Navigate to payment page
+    router.push("/dashboard/payment");
   };
 
   const selectedApp = applications.find((app) => app.id === selectedApplication);
@@ -198,10 +206,10 @@ export default function DashboardPage() {
                     <div className="mb-6 space-y-2 text-gray-200 text-nowrap relative -top-6">
                       <p className="text-base">Electrical Works Certification</p>
                       <p className="text-sm text-nowrap text-gray-400">Application ID: MOH/EL/2025/00215</p>
-                      <p className="text-sm text-nowrap text-gray-400">Certification Fee: GHS 350.00</p>
+                      <p className="text-sm text-nowrap text-gray-400">Certification Fee: ¢1500</p>
                     </div>
                     <button className="w-full rounded-md bg-[#0062FF] px-4 py-3 font-medium text-white hover:bg-blue-700 relative -top-8">
-                      Pay GHS 1500 Now
+                      Pay ¢1500 Now
                     </button>
                   </div>
                 </div>
@@ -218,6 +226,7 @@ export default function DashboardPage() {
                     application={selectedApp}
                     applications={applications}
                     onApplicationChange={handleApplicationChange}
+                    onSubmitApplication={handleSubmitApplication}
                   />
                 )}
               </motion.div>

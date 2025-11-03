@@ -15,7 +15,7 @@ type AuthMode = "login" | "register";
 
 export default function AuthPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<AuthMode>("register");
+  const [mode, setMode] = useState<AuthMode>("login");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -60,7 +60,74 @@ export default function AuthPage() {
             {/* Animated Form Container */}
             <div className="relative overflow-hidden">
               <AnimatePresence mode="wait">
-                {mode === "register" ? (
+                {mode === "login" ? (
+                  <motion.div
+                    key="login"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <h2 className="text-3xl text-center font-bold text-gray-900 dark:text-gray-100">
+                      Sign in
+                    </h2>
+
+                    <form onSubmit={handleLogin} className="mt-8 space-y-6">
+                      <div className="space-y-2">
+                        {/* <Label htmlFor="loginEmail">Email Address</Label> */}
+                        <Input
+                          id="loginEmail"
+                          type="email"
+                          placeholder="Email Address"
+                          className="h-12"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        {/* <Label htmlFor="loginPassword">Password</Label> */}
+                        <div className="relative">
+                          <Input
+                            id="loginPassword"
+                            type={showPassword ? "text" : "password"}
+                            placeholder="Password"
+                            className="h-12 pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                          >
+                            {showPassword ? (
+                              <EyeOff className="h-5 w-5" />
+                            ) : (
+                              <Eye className="h-5 w-5" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      <Button
+                        type="submit"
+                        className="h-12 w-full bg-[#033783] text-white hover:bg-[#022555]"
+                      >
+                        Sign in
+                      </Button>
+
+                      <div className="flex justify-center mt-20 relative">
+                        <p className="text-center font-medium text-sm text-black dark:text-gray-400">
+                          Don&apos;t have an account?{" "}
+                          <button
+                            type="button"
+                            onClick={toggleMode}
+                            className="font-medium text-[#0062FF] hover:underline dark:text-blue-400"
+                          >
+                            Register
+                          </button>
+                        </p>
+                      </div>
+                    </form>
+                  </motion.div>
+                ) : (
                   <motion.div
                     key="register"
                     initial={{ opacity: 0, x: 20 }}
@@ -177,73 +244,6 @@ export default function AuthPage() {
                           Login
                         </button>
                       </p>
-                    </form>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="login"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <h2 className="text-3xl text-center font-bold text-gray-900 dark:text-gray-100">
-                      Sign in
-                    </h2>
-
-                    <form onSubmit={handleLogin} className="mt-8 space-y-6">
-                      <div className="space-y-2">
-                        {/* <Label htmlFor="loginEmail">Email Address</Label> */}
-                        <Input
-                          id="loginEmail"
-                          type="email"
-                          placeholder="Email Address"
-                          className="h-12"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        {/* <Label htmlFor="loginPassword">Password</Label> */}
-                        <div className="relative">
-                          <Input
-                            id="loginPassword"
-                            type={showPassword ? "text" : "password"}
-                            placeholder="Password"
-                            className="h-12 pr-10"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                          >
-                            {showPassword ? (
-                              <EyeOff className="h-5 w-5" />
-                            ) : (
-                              <Eye className="h-5 w-5" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-
-                      <Button
-                        type="submit"
-                        className="h-12 w-full bg-[#033783] text-white hover:bg-[#022555]"
-                      >
-                        Sign in
-                      </Button>
-
-                      <div className="flex justify-center mt-20 relative">
-                        <p className="text-center font-medium text-sm text-black dark:text-gray-400">
-                          Don&apos;t have an account?{" "}
-                          <button
-                            type="button"
-                            onClick={toggleMode}
-                            className="font-medium text-[#0062FF] hover:underline dark:text-blue-400"
-                          >
-                            Register
-                          </button>
-                        </p>
-                      </div>
                     </form>
                   </motion.div>
                 )}
