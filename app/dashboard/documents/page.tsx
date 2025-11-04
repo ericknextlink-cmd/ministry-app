@@ -139,7 +139,7 @@ export default function DocumentsPage() {
                   {/* File Upload Bar */}
                   <div className="flex items-center gap-4">
                     {/* Horizontal Bar Container */}
-                    <div className="flex flex-1 items-center rounded-lg border-2 border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-950 overflow-hidden py-2">
+                    <div className="flex flex-1 items-center rounded-lg border-2 border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-950 overflow-hidden py-1">
                       {/* Choose File Button (Left) */}
                       <input
                         ref={(el) => { fileInputRefs.current[document.id] = el; }}

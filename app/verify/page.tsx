@@ -53,9 +53,10 @@ function VerifyPageContent() {
 
   // Generate QR code URL on mount
   useEffect(() => {
-    const currentUrl = window.location.origin + "/verify?form=true";
-    // For now, we'll use a placeholder. You can integrate a QR code library
-    setQrCodeUrl(currentUrl);
+    if (typeof window !== "undefined") {
+      const currentUrl = window.location.origin + "/verify?form=true";
+      setQrCodeUrl(currentUrl);
+    }
   }, []);
 
   const handleVerifyClick = () => {
@@ -112,7 +113,13 @@ function VerifyPageContent() {
             {/* Right Side - QR Code */}
             <div className="flex flex-col items-center justify-center space-y-4">
               <div className="rounded-lg bg-[#C6DCF2] p-6 shadow-lg dark:bg-gray-950">
-                <QRCodeGenerator url={qrCodeUrl} width={200} />
+                {qrCodeUrl ? (
+                  <QRCodeGenerator url={qrCodeUrl} width={200} />
+                ) : (
+                  <div className="h-[200px] w-[200px] flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                  </div>
+                )}
               </div>
               <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
                 Scan QR Code
@@ -167,7 +174,7 @@ function VerifyPageContent() {
       {/* Footer */}
       <footer className="bg-white dark:bg-gray-950">
         <div className="container px-4 py-8 md:px-6">
-          <div className="flex flex-col items-center gap-1 text-center text-sm font-semibold text-black dark:text-gray-400 relative -left-98">
+          <div className="flex flex-col items-center gap-1 text-center text-sm font-semibold text-black dark:text-gray-400 relative xl:-left-98 lg:-left-65 md:-left-28 -left-28">
             <p>Copyright © 2025 Ministry of Housing</p>
             <div className="flex gap-1 relative -left-8">
               <Link href="/privacy-policy" className="hover:text-gray-900 dark:hover:text-gray-100">

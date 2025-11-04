@@ -12,18 +12,27 @@ export function QRCodeGenerator({ url, width = 200 }: QRCodeGeneratorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (canvasRef.current) {
+    if (canvasRef.current && url && url.trim() !== "") {
       QRCode.toCanvas(canvasRef.current, url, {
         width: width,
         margin: 2,
         color: {
-          dark: "#C6DCF2",
-          light: "#C6DCF2",
+          dark: "#000000",
+          light: "#FFFFFF",
         },
+      }).catch((error) => {
+        console.error("Error generating QR code:", error);
       });
     }
   }, [url, width]);
 
-  return <canvas ref={canvasRef} className="rounded-lg" />;
+  return (
+    <canvas 
+      ref={canvasRef} 
+      className="rounded-lg"
+      width={width}
+      height={width}
+    />
+  );
 }
 
