@@ -207,22 +207,22 @@ export function ApplicationDetails({
 
       {/* Class Type Dropdown */}
       <Select value={selectedClass} onValueChange={setSelectedClass}>
-        <div className="flex items-center justify-between rounded-full border bg-white px-6 py-3 shadow-sm dark:bg-gray-950">
+        <SelectTrigger className="flex w-full items-center justify-between rounded-full border bg-white px-6 py-3 shadow-sm dark:bg-gray-950 [&>svg]:hidden">
           <span className="text-base font-medium">Select Class Type</span>
-            <SelectTrigger className="w-auto border-0 bg-transparent p-0 [&>svg]:hidden">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {certData.classes.map((classItem) => (
-                <SelectItem key={classItem.id} value={classItem.id}>
-                  {classItem.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          <div className="pointer-events-none flex h-8 w-8 items-center justify-center rounded-md border-2 border-black bg-white dark:bg-gray-800">
-            <ChevronDown className="h-6 w-6" />
+          <div className="flex items-center gap-3">
+            <SelectValue />
+            <div className="pointer-events-none flex h-8 w-8 items-center justify-center rounded-md border-2 border-black bg-white dark:bg-gray-800">
+              <ChevronDown className="h-6 w-6" />
+            </div>
           </div>
-        </div>
+        </SelectTrigger>
+        <SelectContent>
+          {certData.classes.map((classItem) => (
+            <SelectItem key={classItem.id} value={classItem.id}>
+              {classItem.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
       </Select>
 
       {/* Certificate Information */}
