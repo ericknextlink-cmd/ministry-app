@@ -151,7 +151,7 @@ export default function DocumentsPage() {
                       <button
                         type="button"
                         onClick={() => fileInputRefs.current[document.id]?.click()}
-                        className="h-10 px-6 rounded-l-lg rounded-r-none bg-gray-100 hover:bg-gray-200 dark:bg-gray-900 dark:hover:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
+                        className="h-20 px-8 rounded-l-lg rounded-r-none bg-gray-100 hover:bg-gray-200 dark:bg-gray-900 dark:hover:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
                       >
                         Choose File
                       </button>
@@ -168,7 +168,7 @@ export default function DocumentsPage() {
                         type="button"
                         onClick={() => handleUpload(document.id)}
                         disabled={document.status === "uploaded" || !document.file}
-                        className={`h-18 py-4 rounded-l-none rounded-r-lg px-6 ${
+                        className={`h-28 py-8 rounded-l-none rounded-r-lg px-6 ${
                           document.status === "uploaded"
                             ? "border border-gray-300 bg-white text-gray-900 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:hover:bg-gray-900"
                             : "bg-[#033783] text-white hover:bg-[#022555]"
