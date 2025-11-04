@@ -11,25 +11,25 @@ const carouselItems = [
   {
     id: "get-certified",
     title: "Get Certified Now",
-    image: "/awards.png",
+    image: "/get-certified.png",
     description: "The Ministry of Works and Housing issues official Classification Certificates for qualified contractors in General Building & Civil, Electrical, and Plumbing works. This certification ensures that all contractors meet the Ministry's standards for technical competence, financial capacity, and professional integrity.",
   },
   {
     id: "general-building",
     title: "General Building & Civil Works",
-    image: "/general-building.jpg",
+    image: "/general-building.png",
     description: "Gain national recognition as an approved Civil Works Contractor. Your classification certificate from the Ministry validates your capacity to undertake projects in construction, road works, drainage systems, and infrastructure development.",
   },
   {
     id: "electrical",
     title: "Electrical Works",
-    image: "/electrical.jpg",
+    image: "/electrical.png",
     description: "The Electrical Works Classification Certificate demonstrates your company's qualification to handle electrical installations, maintenance, and public infrastructure projects under the Ministry's supervision. Be part of Ghana's sustainable energy and electrification drive.",
   },
   {
     id: "plumbing",
     title: "Plumbing Works",
-    image: "/plumbing.jpg",
+    image: "/plumbing.png",
     description: "The Plumbing Works Classification Certificate recognizes your capability in providing water supply systems, sanitary installations, and maintenance services that meet the Ministry's professional benchmarks. Let your certification speak for your credibility.",
   },
   {

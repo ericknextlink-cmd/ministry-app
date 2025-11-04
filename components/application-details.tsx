@@ -72,6 +72,14 @@ const certificateData = {
         financialClass: "$75,000 - $200,000",
         requiresLLC: false,
       },
+      {
+        id: "E3",
+        label: "E3",
+        registration: "¢300",
+        renewal: "¢50",
+        financialClass: "Up to $75,000",
+        requiresLLC: false,
+      },
     ],
   },
   "plumbing": {
