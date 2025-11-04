@@ -210,7 +210,7 @@ export function ApplicationDetails({
         <SelectTrigger className="flex w-full items-center justify-between rounded-full border bg-white px-6 py-3 h-10 shadow-sm dark:bg-gray-950 [&>svg]:hidden">
           <span className="text-base font-medium">Select Class Type</span>
           <div className="flex items-center gap-3">
-            <SelectValue className="-left-40" />
+            <SelectValue className="relaive -left-40" />
             <div className="pointer-events-none flex h-8 w-8 items-center justify-center rounded-md border-2 border-black bg-white dark:bg-gray-800">
               <ChevronDown className="h-6 w-6" />
             </div>
