@@ -16,15 +16,15 @@ import { QRCodeGenerator } from "@/components/qr-code-generator";
 type VerificationStatus = "valid" | "expired" | "revoked";
 
 const statusIcons = {
-  valid: "/Approval.svg",
-  expired: "/Expired.svg",
-  revoked: "/revoked.svg",
+  valid: "/certificate-valid.svg",
+  expired: "/certificate-valid.svg",
+  revoked: "/certificate-gray.svg",
 };
 
 const statusBadges = {
-  valid: { icon: "/certificate-valid.svg", color: "text-green-600" },
-  expired: { icon: "/certificate-valid.svg", color: "text-orange-600" },
-  revoked: { icon: "/certificate-gray.svg", color: "text-red-600" },
+  valid: { icon: "/Approval.svg", color: "text-green-600" },
+  expired: { icon: "/Expired.svg", color: "text-orange-600" },
+  revoked: { icon: "/revoked.svg", color: "text-red-600" },
 };
 
 const mockCertificateData = {
