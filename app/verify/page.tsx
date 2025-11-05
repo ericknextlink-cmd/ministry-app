@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Header } from "@/components/header";
+import { Chatbot } from "@/components/chatbot";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -407,6 +408,9 @@ function VerifyPageContent() {
           </>
         )}
       </AnimatePresence>
+
+      {/* Chatbot */}
+      <Chatbot />
     </div>
   );
 }

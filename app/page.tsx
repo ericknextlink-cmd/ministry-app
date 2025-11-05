@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Header } from "@/components/header";
+import { Chatbot } from "@/components/chatbot";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -155,12 +156,14 @@ export default function Home() {
               </div>
 
               <div className="relative scale-[0.6] -left-30 -top-16">
-                <Link
-                  href="#"
+                <a
+                  href="/docuemnts/Guideline -MWHWR.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-block text-base text-[#8E8EAF] hover:text-gray-400 dark:text-gray-400 dark:hover:text-gray-200 lg:text-5xl"
                 >
                   Download Certification Guidelines Paper
-                </Link>
+                </a>
               </div>
             </div>
 
@@ -177,6 +180,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Chatbot */}
+      <Chatbot />
 
       {/* Footer - Fixed at Bottom */}
       <footer className="bg-white dark:bg-gray-950">
