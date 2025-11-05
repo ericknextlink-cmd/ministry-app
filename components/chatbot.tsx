@@ -92,7 +92,7 @@ export function Chatbot() {
       {/* Floating Orb Button */}
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-[#033783] text-white shadow-lg transition-all hover:bg-[#022555] hover:scale-110"
+        className="fixed bottom-6 right-6 z-9999 flex h-16 w-16 items-center justify-center rounded-full bg-[#033783] text-white shadow-lg transition-all hover:bg-[#022555] hover:scale-110"
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
         aria-label="Open chat"
@@ -129,7 +129,7 @@ export function Chatbot() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm"
+              className="fixed inset-0 z-9998 bg-black/20 backdrop-blur-sm"
               onClick={() => setIsOpen(false)}
             />
 
@@ -138,7 +138,7 @@ export function Chatbot() {
               initial={{ opacity: 0, scale: 0.8, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.8, y: 20 }}
-              className="fixed bottom-24 right-6 z-50 flex h-[600px] w-[400px] flex-col rounded-lg border bg-white shadow-2xl dark:bg-gray-950 dark:border-gray-800"
+              className="fixed bottom-24 right-6 z-9999 flex h-[600px] w-[400px] flex-col rounded-lg border bg-white shadow-2xl dark:bg-gray-950 dark:border-gray-800"
             >
               {/* Header */}
               <div className="flex items-center justify-between border-b bg-[#033783] p-4 text-white dark:border-gray-800">
