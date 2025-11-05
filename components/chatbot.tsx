@@ -10,6 +10,79 @@ interface Message {
   content: string;
 }
 
+// Format message content: convert markdown to HTML
+function formatMessage(content: string): React.ReactNode {
+  // Split by lines to handle list items
+  const lines = content.split('\n');
+  
+  return lines.map((line, lineIndex) => {
+    // Check if line starts with "- " (list item)
+    if (line.trim().startsWith('- ')) {
+      // Remove the "- " and format the rest
+      const listContent = line.trim().substring(2);
+      // Process bold text in list item
+      const parts: (string | React.ReactNode)[] = [];
+      let currentIndex = 0;
+      const boldRegex = /\*\*(.*?)\*\*/g;
+      let match;
+      let lastIndex = 0;
+
+      while ((match = boldRegex.exec(listContent)) !== null) {
+        // Add text before the bold
+        if (match.index > lastIndex) {
+          parts.push(listContent.substring(lastIndex, match.index));
+        }
+        // Add bold text
+        parts.push(<strong key={`bold-${match.index}`}>{match[1]}</strong>);
+        lastIndex = match.index + match[0].length;
+      }
+      // Add remaining text
+      if (lastIndex < listContent.length) {
+        parts.push(listContent.substring(lastIndex));
+      }
+
+      return (
+        <div key={lineIndex} className="flex items-start gap-2 my-1">
+          <span className="text-[#033783] shrink-0">→</span>
+          <span>{parts.length > 0 ? parts : listContent}</span>
+        </div>
+      );
+    }
+    
+    // Regular line - process bold text
+    const parts: (string | React.ReactNode)[] = [];
+    let currentIndex = 0;
+    const boldRegex = /\*\*(.*?)\*\*/g;
+    let match;
+    let lastIndex = 0;
+
+    while ((match = boldRegex.exec(line)) !== null) {
+      // Add text before the bold
+      if (match.index > lastIndex) {
+        parts.push(line.substring(lastIndex, match.index));
+      }
+      // Add bold text
+      parts.push(<strong key={`bold-${match.index}`}>{match[1]}</strong>);
+      lastIndex = match.index + match[0].length;
+    }
+    // Add remaining text
+    if (lastIndex < line.length) {
+      parts.push(line.substring(lastIndex));
+    }
+
+    // Return empty line or formatted line
+    if (line.trim() === '') {
+      return <br key={lineIndex} />;
+    }
+
+    return (
+      <div key={lineIndex} className={lineIndex < lines.length - 1 ? 'mb-1' : ''}>
+        {parts.length > 0 ? parts : line}
+      </div>
+    );
+  });
+}
+
 export function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -21,7 +94,7 @@ export function Chatbot() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -42,6 +115,10 @@ export function Chatbot() {
 
     const userMessage = input.trim();
     setInput("");
+    // Reset textarea height
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+    }
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsLoading(true);
 
@@ -80,12 +157,6 @@ export function Chatbot() {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
 
   return (
     <>
@@ -176,9 +247,12 @@ export function Chatbot() {
                           : "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
                       }`}
                     >
-                      <p className="text-sm whitespace-pre-wrap">
-                        {message.content}
-                      </p>
+                      <div className="text-sm whitespace-pre-wrap">
+                        {message.role === "assistant" 
+                          ? formatMessage(message.content)
+                          : message.content
+                        }
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -194,21 +268,32 @@ export function Chatbot() {
 
               {/* Input */}
               <div className="border-t p-4 dark:border-gray-800">
-                <div className="flex gap-2">
-                  <input
-                    ref={inputRef}
-                    type="text"
+                <div className="flex gap-2 items-end">
+                  <textarea
+                    ref={inputRef as React.RefObject<HTMLTextAreaElement>}
                     value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyPress={handleKeyPress}
+                    onChange={(e) => {
+                      setInput(e.target.value);
+                      // Auto-resize textarea
+                      e.target.style.height = 'auto';
+                      e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                      }
+                    }}
                     placeholder="Type your message..."
-                    className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:border-[#033783] focus:outline-none focus:ring-2 focus:ring-[#033783]/20 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                    rows={1}
+                    className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:border-[#033783] focus:outline-none focus:ring-2 focus:ring-[#033783]/20 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100 resize-none overflow-y-auto max-h-[120px]"
                     disabled={isLoading}
+                    style={{ minHeight: '40px', maxHeight: '120px' }}
                   />
                   <Button
                     onClick={handleSend}
                     disabled={!input.trim() || isLoading}
-                    className="bg-[#033783] text-white hover:bg-[#022555] disabled:opacity-50"
+                    className="bg-[#033783] text-white hover:bg-[#022555] disabled:opacity-50 shrink-0"
                     size="sm"
                   >
                     <Send className="h-4 w-4" />
