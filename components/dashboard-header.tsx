@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button"; // Import Button
-import { useApplication } from "@/contexts/ApplicationContext"; // Import useApplication
+import { useApplication } from "@/contexts/ApplicationContext"; // Use context for updates
 import { useRouter } from "next/navigation"; // Import useRouter
 import { notificationsApi } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
@@ -115,7 +115,7 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
       </button>
 
       {/* Title */}
-      <h1 className="flex-1 text-base font-semibold text-gray-900 dark:text-gray-100 md:text-xl">
+      <h1 className="flex-1 text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100 md:text-xl truncate px-2">
         Classification Certificate Application Portal
       </h1>
 
@@ -191,4 +191,3 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
     </header>
   );
 }
-
