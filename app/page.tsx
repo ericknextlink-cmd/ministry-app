@@ -33,12 +33,6 @@ const carouselItems = [
     image: "/plumbing.png",
     description: "The Plumbing Works Classification Certificate recognizes your capability in providing water supply systems, sanitary installations, and maintenance services that meet the Ministry's professional benchmarks. Let your certification speak for your credibility.",
   },
-  {
-    id: "apply",
-    title: "Get Classified Now",
-    image: "/awards.png",
-    description: "Submit your application for Ministry of Housing certification with ease. Whether you're an electrician, builder, or plumber, our digital platform ensures a smooth, transparent, and efficient process — from submission to approval.",
-  },
 ];
 
 export default function Home() {

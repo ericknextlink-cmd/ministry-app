@@ -3,8 +3,21 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  LayoutDashboard, 
+  CreditCard, 
+  Building2, 
+  Users, 
+  FileText, 
+  RotateCcw, 
+  Info,
+  LogOut
+} from "lucide-react";
+import { useApplication } from "@/contexts/ApplicationContext";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -14,13 +27,23 @@ interface SidebarProps {
 }
 
 export function DashboardSidebar({ isOpen, isCollapsed, onClose, onToggleCollapse }: SidebarProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { user, logout } = useApplication();
+
+  const handleLogout = () => {
+      logout();
+      router.push("/auth");
+  };
 
   const navItems = [
-    { name: "Dashboard", icon: "/dashboard.svg", iconActive: "/dashboard.svg", href: "/dashboard", active: true },
-    { name: "Company Information", icon: "/company-gray.png", iconActive: "/company-blue.png", href: "/dashboard/company", active: false },
-    { name: "Directors Details", icon: "/directors-gray.png", iconActive: "/directors-blue.png", href: "/dashboard/directors", active: false },
-    { name: "Upload Documents", icon: "/upload-gray.png", iconActive: "/upload-blue.png", href: "/dashboard/documents", active: false },
-    { name: "References", icon: "/asterics.png", iconActive: "/asterics-blue.png", href: "/dashboard/references", active: false },
+    { name: "Dashboard", Icon: LayoutDashboard, href: "/dashboard" },
+    { name: "Payments", Icon: CreditCard, href: "/dashboard/bulk-payment" },
+    { name: "Company Information", Icon: Building2, href: "/dashboard/company" },
+    { name: "Directors Details", Icon: Users, href: "/dashboard/directors" },
+    { name: "Upload Documents", Icon: FileText, href: "/dashboard/documents" },
+    { name: "Renewals", Icon: RotateCcw, href: "/dashboard/renewals" },
+    { name: "References", Icon: Info, href: "/dashboard/references" },
   ];
 
   return (
@@ -70,69 +93,60 @@ export function DashboardSidebar({ isOpen, isCollapsed, onClose, onToggleCollaps
 
           {/* Navigation Items */}
           <nav className="flex-1 space-y-2 overflow-y-auto p-4">
-            {navItems.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
-                  item.active
-                    ? "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400"
-                    : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
-                  isCollapsed && "justify-center"
-                )}
-              >
-                <div className="relative h-5 w-5 shrink-0">
-                  <Image
-                    src={item.active ? item.iconActive : item.icon}
-                    alt={item.name}
-                    fill
-                    className="object-contain"
-                  />
-                </div>
-                {!isCollapsed && <span>{item.name}</span>}
-              </Link>
-            ))}
+            {navItems.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400"
+                      : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
+                    isCollapsed && "justify-center"
+                  )}
+                >
+                  <item.Icon className={cn("h-5 w-5 shrink-0", isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-gray-400")} />
+                  {!isCollapsed && <span>{item.name}</span>}
+                </Link>
+              );
+            })}
           </nav>
 
           {/* Logout Button */}
-          <div className="p-4 relative bottom-18">
+          <div className="p-4 mt-auto border-t border-gray-100 dark:border-gray-800">
             <button
+              onClick={handleLogout}
               className={cn(
                 "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
                 isCollapsed && "justify-center"
               )}
             >
-              <Image src="/logout.png" alt="Logout" width={20} height={20} className="h-5 w-5 shrink-0" />
+              <LogOut className="h-5 w-5 shrink-0 text-gray-500 dark:text-gray-400" />
               {!isCollapsed && <span>Logout</span>}
             </button>
           </div>
 
           {/* User Profile */}
           <div className="border-t bg-gray-50 p-4 dark:bg-gray-900">
-            <div className={cn("flex items-center gap-3", isCollapsed && "justify-center")}>
-              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-indigo-600">
-                <Image
-                  src="/user.png"
-                  alt="User Avatar"
-                  width={40}
-                  height={40}
-                  className="object-cover"
-                />
+            <Link href="/dashboard/profile" className={cn("flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded-lg transition-colors", isCollapsed && "justify-center")}>
+              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold">
+                {user?.full_name ? user.full_name.charAt(0).toUpperCase() : (user?.email?.charAt(0).toUpperCase() || "U")}
               </div>
               {!isCollapsed && (
                 <div className="flex-1 overflow-hidden">
                   <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                    Sam Wheeler
+                    {user?.full_name || "User"}
                   </p>
-                  <div className="scale-[0.8] lg:scale-[0.9] md:scale-[0.8] right-2 relative">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      info@nexlinktechnologies.com
+                  <div className="scale-[0.8] lg:scale-[0.9] md:scale-[0.8] -ml-1 relative">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      {user?.email || "No email"}
                     </p>
                   </div>
                 </div>
               )}
-            </div>
+            </Link>
           </div>
         </div>
       </aside>

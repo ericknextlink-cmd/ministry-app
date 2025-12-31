@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { ApplicationProvider } from "@/contexts/ApplicationContext";
+import NextTopLoader from "nextjs-toploader";
 
 
 const montserrat = Montserrat({
@@ -36,6 +37,7 @@ export default function RootLayout({
           disableTransitionOnChange={false}
         >
           <ApplicationProvider>
+            <NextTopLoader color="#033783" showSpinner={false} />
             {children}
             <Toaster />
           </ApplicationProvider>

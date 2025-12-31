@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { QRCodeGenerator } from "@/components/qr-code-generator";
+import { toast } from "sonner";
 
 type VerificationStatus = "valid" | "expired" | "revoked";
 
@@ -43,6 +44,19 @@ function VerifyPageContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [verificationResult, setVerificationResult] = useState<typeof mockCertificateData | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
+
+  // OTP & Form State
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [verificationToken, setVerificationToken] = useState("");
+  
+  // Controlled Inputs
+  const [name, setName] = useState("");
+  const [certNumber, setCertNumber] = useState("");
+  const [phone, setPhone] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
   
   // Check if modal should open from query param
   useEffect(() => {
@@ -64,20 +78,146 @@ function VerifyPageContent() {
     setIsModalOpen(true);
   };
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newPhone = e.target.value;
+      setPhone(newPhone);
+      
+      // If user edits phone after sending/verifying, reset status
+      if (otpSent || otpVerified) {
+          setOtpSent(false);
+          setOtpVerified(false);
+          setVerificationToken("");
+          setOtpCode("");
+      }
+  };
+
+  const handleSendOTP = async () => {
+    if (!phone || phone.length < 10) {
+        toast.error("Invalid Phone", { description: "Please enter a valid mobile number." });
+        return;
+    }
+    setIsLoading(true);
+
+    try {
+        const res = await fetch(`${API_URL}/api/v1/applications/public/otp/send`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ phone_number: phone })
+        });
+        
+        if (res.ok) {
+            setOtpSent(true);
+            toast.success("OTP Sent", { description: "Please check your phone for the code." });
+        } else {
+            toast.error("Error", { description: "Failed to send OTP." });
+        }
+    } catch (e) {
+        toast.error("Error", { description: "Network error." });
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+     if (!otpCode) return;
+     setIsLoading(true);
+     try {
+        const res = await fetch(`${API_URL}/api/v1/applications/public/otp/verify`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ phone_number: phone, otp: otpCode })
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            setVerificationToken(data.token);
+            setOtpVerified(true);
+            toast.success("Verified", { description: "Phone number verified successfully." });
+        } else {
+            toast.error("Invalid OTP", { description: "Please try again." });
+        }
+    } catch (e) {
+        toast.error("Error", { description: "Network error." });
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
   const handleVerifySubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!verificationToken) {
+         toast.error("Verification Required", { description: "Please verify your phone number first." });
+         return;
+    }
+
     setIsLoading(true);
+    setVerificationResult(null);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setVerificationResult(mockCertificateData);
-    setIsLoading(false);
+    // Clean ID
+    const certId = certNumber.replace(/\D/g, ''); 
+
+    if (!certId) {
+        toast.error("Invalid Input", { description: "Please enter a valid certificate number." });
+        setIsLoading(false);
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_URL}/api/v1/applications/public/verify/${certId}?token=${verificationToken}`);
+        
+        if (!res.ok) {
+            if (res.status === 404) {
+                 toast.error("Certificate Invalid", { description: "No valid certificate found with this number." });
+            } else if (res.status === 401) {
+                 toast.error("Session Expired", { description: "OTP session expired. Please verify again." });
+                 setOtpVerified(false);
+                 setVerificationToken("");
+            } else {
+                 toast.error("Verification Failed", { description: "System error. Please try again later." });
+            }
+            setIsLoading(false);
+            return;
+        }
+
+        const data = await res.json();
+        
+        let status: VerificationStatus = "valid";
+        if (data.status === "suspended" || data.status === "cancelled") {
+            status = "revoked";
+        } else if (data.expiry_date && new Date(data.expiry_date) < new Date()) {
+            status = "expired";
+        }
+
+        setVerificationResult({
+            type: data.certificate_type.replace(/_/g, " ").toUpperCase(),
+            companyName: data.company_name,
+            companyAddress: data.company_address || "N/A",
+            expiryDate: data.expiry_date ? new Date(data.expiry_date).toLocaleDateString() : "N/A",
+            certificateNumber: `MWHE-${new Date().getFullYear()}-${data.id.toString().padStart(5, '0')}`,
+            status: status
+        });
+        
+        toast.success("Certificate Verified", { description: "Certificate details retrieved successfully." });
+
+    } catch (err) {
+        console.error(err);
+        toast.error("Network Error", { description: "Could not connect to verification server." });
+    } finally {
+        setIsLoading(false);
+    }
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
     setVerificationResult(null);
+    // Reset state on close
+    setOtpSent(false);
+    setOtpVerified(false);
+    setVerificationToken("");
+    setPhone("");
+    setOtpCode("");
+    setName("");
+    setCertNumber("");
   };
 
   return (
@@ -224,7 +364,7 @@ function VerifyPageContent() {
                       <div className="flex flex-col items-center justify-center space-y-4 py-12">
                         <Loader2 className="h-12 w-12 animate-spin text-[#033783]" />
                         <p className="text-lg text-gray-600 dark:text-gray-400">
-                          Verifying certificate...
+                          Processing...
                         </p>
                       </div>
                     ) : (
@@ -240,6 +380,8 @@ function VerifyPageContent() {
                               id="name"
                               placeholder="Enter full name"
                               className="h-12"
+                              value={name}
+                              onChange={(e) => setName(e.target.value)}
                               required
                             />
                           </div>
@@ -250,36 +392,74 @@ function VerifyPageContent() {
                               id="certNumber"
                               placeholder="Enter certificate number"
                               className="h-12"
+                              value={certNumber}
+                              onChange={(e) => setCertNumber(e.target.value)}
                               required
                             />
                           </div>
 
                           <div className="space-y-2">
                             <Label htmlFor="mobile">Verifier Mobile Number</Label>
-                            <Input
-                              id="mobile"
-                              type="tel"
-                              placeholder="Enter mobile number"
-                              className="h-12"
-                              required
-                            />
+                            <div className="flex gap-2">
+                                <Input
+                                id="mobile"
+                                type="tel"
+                                placeholder="Enter mobile number"
+                                className="h-12 flex-1"
+                                value={phone}
+                                onChange={handlePhoneChange}
+                                required
+                                />
+                                {!otpVerified && (
+                                    <Button 
+                                        type="button" 
+                                        onClick={handleSendOTP} 
+                                        disabled={otpSent}
+                                        className="h-12 bg-[#033783] text-white"
+                                    >
+                                        {otpSent ? "Sent" : "Get OTP"}
+                                    </Button>
+                                )}
+                                {otpVerified && (
+                                    <div className="h-12 flex items-center px-3 bg-green-100 text-green-700 rounded-md whitespace-nowrap">
+                                        Verified
+                                    </div>
+                                )}
+                            </div>
                           </div>
 
-                          <div className="space-y-2">
-                            <Label htmlFor="token">Enter Token</Label>
-                            <Input
-                              id="token"
-                              placeholder="Enter verification token"
-                              className="h-12"
-                              required
-                            />
-                          </div>
+                          {otpSent && !otpVerified && (
+                              <div className="space-y-2">
+                                <Label htmlFor="otp">Enter OTP Code</Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        id="otp"
+                                        placeholder="123456"
+                                        className="h-12 tracking-widest text-center text-lg"
+                                        maxLength={6}
+                                        value={otpCode}
+                                        onChange={(e) => setOtpCode(e.target.value)}
+                                        required
+                                    />
+                                    <Button 
+                                        type="button"
+                                        onClick={handleVerifyOTP}
+                                        className="h-12 bg-green-600 hover:bg-green-700 text-white"
+                                    >
+                                        Verify Code
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-gray-500">
+                                    Please check your console logs (local) or SMS for the code.
+                                </p>
+                              </div>
+                          )}
 
-                          <div className="flex items-start gap-2">
+                          <div className="flex items-start gap-2 pt-2">
                             <Checkbox id="terms" required />
                             <Label
                               htmlFor="terms"
-                              className="cursor-pointer text-sm leading-none"
+                              className="cursor-pointer text-sm leading-none pt-1"
                             >
                               By ticking this box you accept the Terms & Condition of use.
                             </Label>
@@ -288,9 +468,10 @@ function VerifyPageContent() {
                           <Button
                             type="submit"
                             size="lg"
-                            className="w-full bg-[#033783] text-white hover:bg-[#022555]"
+                            disabled={!otpVerified}
+                            className="w-full bg-[#033783] text-white hover:bg-[#022555] disabled:opacity-50"
                           >
-                            Verify
+                            Verify Certificate
                           </Button>
                         </form>
                       </>

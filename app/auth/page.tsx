@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -10,31 +10,95 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import { useApplication } from "@/contexts/ApplicationContext"; // Import useApplication
 
 type AuthMode = "login" | "register";
 
 export default function AuthPage() {
   const router = useRouter();
+  const { login, register, isAuthenticated, loading, error, user } = useApplication(); // Get user
   const [mode, setMode] = useState<AuthMode>("login");
   const [showPassword, setShowPassword] = useState(false);
+  
+  // Login State
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  
+  // Register State
+  const [regCompanyName, setRegCompanyName] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regConfirmEmail, setRegConfirmEmail] = useState("");
+  const [regPhone, setRegPhone] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regConfirmPassword, setRegConfirmPassword] = useState("");
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+
+  /*
+  useEffect(() => {
+    if (isAuthenticated && user) {
+        if (user.is_superuser) {
+            router.push("/admin");
+        } else {
+            router.push("/dashboard");
+        }
+    }
+  }, [isAuthenticated, user, router]);
+  */
 
   const toggleMode = () => {
     setMode(mode === "login" ? "register" : "login");
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simple state-based auth for now
-    toast.success("Login successful!");
-    router.push("/dashboard");
+    try {
+      const loggedInUser = await login(email, password);
+      console.log("Logged in user:", loggedInUser); // Debug log
+      toast.success("Login successful!");
+      
+      const isAdmin = loggedInUser && (
+          loggedInUser.is_superuser || 
+          loggedInUser.role === 'admin' || 
+          loggedInUser.role === 'super_admin'
+      );
+
+      if (isAdmin) {
+          console.log("Redirecting to Admin");
+          router.push("/admin");
+      } else {
+          console.log("Redirecting to Dashboard");
+          router.push("/dashboard");
+      }
+    } catch (err: any) {
+       toast.error(err.message || "Login failed");
+    }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simple state-based auth for now
-    toast.success("Registration successful!");
-    router.push("/dashboard");
+    
+    if (regPassword !== regConfirmPassword) {
+        toast.error("Passwords do not match");
+        return;
+    }
+    if (regEmail !== regConfirmEmail) {
+        toast.error("Emails do not match");
+        return;
+    }
+
+    try {
+      await register({
+          email: regEmail, 
+          password: regPassword,
+          companyName: regCompanyName,
+          phone: regPhone
+      });
+      toast.success("Registration successful!");
+      // Context will auto-login and useEffect will redirect
+    } catch (err: any) {
+        toast.error(err.message || "Registration failed");
+    }
   };
 
   return (
@@ -80,6 +144,9 @@ export default function AuthPage() {
                           type="email"
                           placeholder="Email Address"
                           className="h-12"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          required
                         />
                       </div>
 
@@ -91,6 +158,9 @@ export default function AuthPage() {
                             type={showPassword ? "text" : "password"}
                             placeholder="Password"
                             className="h-12 pr-10"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
                           />
                           <button
                             type="button"
@@ -104,13 +174,22 @@ export default function AuthPage() {
                             )}
                           </button>
                         </div>
+                        <div className="text-right">
+                          <Link
+                            href="/auth/forgot-password"
+                            className="text-sm font-medium text-[#0062FF] hover:underline dark:text-blue-400"
+                          >
+                            Forgot Password?
+                          </Link>
+                        </div>
                       </div>
 
                       <Button
                         type="submit"
                         className="h-12 w-full bg-[#033783] text-white hover:bg-[#022555]"
+                        disabled={loading}
                       >
-                        Sign in
+                        {loading ? "Signing In..." : "Sign in"}
                       </Button>
 
                       <div className="flex justify-center mt-20 relative">
@@ -146,6 +225,9 @@ export default function AuthPage() {
                           id="companyName"
                           placeholder="Company Name"
                           className="h-12"
+                          value={regCompanyName}
+                          onChange={(e) => setRegCompanyName(e.target.value)}
+                          required
                         />
                       </div>
 
@@ -156,6 +238,9 @@ export default function AuthPage() {
                           type="email"
                           placeholder="Email Address"
                           className="h-12"
+                          value={regEmail}
+                          onChange={(e) => setRegEmail(e.target.value)}
+                          required
                         />
                       </div>
 
@@ -166,6 +251,9 @@ export default function AuthPage() {
                           type="email"
                           placeholder="Confirm Email Address"
                           className="h-12"
+                          value={regConfirmEmail}
+                          onChange={(e) => setRegConfirmEmail(e.target.value)}
+                          required
                         />
                       </div>
 
@@ -176,6 +264,9 @@ export default function AuthPage() {
                           type="tel"
                           placeholder="Phone Number"
                           className="h-12"
+                          value={regPhone}
+                          onChange={(e) => setRegPhone(e.target.value)}
+                          required
                         />
                       </div>
 
@@ -187,6 +278,9 @@ export default function AuthPage() {
                             type={showPassword ? "text" : "password"}
                             placeholder="Password"
                             className="h-12 pr-10"
+                            value={regPassword}
+                            onChange={(e) => setRegPassword(e.target.value)}
+                            required
                           />
                           <button
                             type="button"
@@ -210,6 +304,9 @@ export default function AuthPage() {
                             type={showConfirmPassword ? "text" : "password"}
                             placeholder="Confirm Password"
                             className="h-12 pr-10"
+                            value={regConfirmPassword}
+                            onChange={(e) => setRegConfirmPassword(e.target.value)}
+                            required
                           />
                           <button
                             type="button"
@@ -230,8 +327,9 @@ export default function AuthPage() {
                       <Button
                         type="submit"
                         className="h-12 w-full bg-[#033783] text-white hover:bg-[#022555]"
+                        disabled={loading} // Disable during registration attempt
                       >
-                        Register
+                        {loading ? "Registering..." : "Register"}
                       </Button>
 
                       <p className="text-center font-medium text-sm text-black dark:text-gray-400">
@@ -266,4 +364,5 @@ export default function AuthPage() {
     </div>
   );
 }
+
 

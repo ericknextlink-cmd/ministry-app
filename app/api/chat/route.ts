@@ -1,91 +1,58 @@
-import { NextRequest, NextResponse } from "next/server";
-import { ChatOpenAI } from "@langchain/openai";
-import { ChatPromptTemplate } from "@langchain/core/prompts";
-import { StringOutputParser } from "@langchain/core/output_parsers";
-import fs from "fs";
-import path from "path";
+import { NextResponse } from 'next/server';
+import chatData from '@/lib/chat-data.json';
+import stringSimilarity from 'string-similarity';
 
-// Load knowledge base from guidelines file
-function loadKnowledgeBase(): string {
+export async function POST(req: Request) {
   try {
-    const filePath = path.join(process.cwd(), "public", "docuemnts", "guidelines.txt");
-    const content = fs.readFileSync(filePath, "utf-8");
-    return content;
-  } catch (error) {
-    console.error("Error loading knowledge base:", error);
-    return "";
-  }
-}
-
-const knowledgeBase = loadKnowledgeBase();
-
-const systemPrompt = `You are Mavis, a helpful and friendly AI assistant for the Ministry of Works, Housing & Water Resources (MWHWR) in Ghana. Your role is to assist users with questions about contractor certification, classification, and the application process.
-
-Your name is Mavis.
-
-You are the official support agent for the Ministry's Classification Application Portal. You help users understand:
-- Certification and classification processes
-- Application requirements and procedures
-- Document requirements
-- Fees and renewal processes
-- Categories and classes (D, K, E, G)
-- Compliance and monitoring requirements
-- Appeals and grievances procedures
-
-Use the following knowledge base to answer questions accurately. If you don't know something based on the knowledge base, politely say you don't have that information and suggest contacting the Classification Office directly.
-
-Knowledge Base:
-${knowledgeBase}
-
-Always be professional, courteous, and helpful. Respond in a clear and concise manner. If asked about your name, say "I'm Mavis, your assistant for the Ministry of Works, Housing & Water Resources."`;
-
-export async function POST(req: NextRequest) {
-  try {
-    const { message, history } = await req.json();
+    const body = await req.json();
+    const { message } = body;
 
     if (!message) {
-      return NextResponse.json(
-        { error: "Message is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ response: "Please type a message." }, { status: 400 });
     }
 
-    // Check for OpenAI API key
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json(
-        { error: "OpenAI API key is not configured" },
-        { status: 500 }
-      );
-    }
+    const userMessage = message.toLowerCase();
+    
+    // 1. Direct Pattern Matching (High Priority)
+    let bestMatch = null;
+    let highestScore = 0;
 
-    const llm = new ChatOpenAI({
-      modelName: "gpt-3.5-turbo",
-      temperature: 0.7,
-      openAIApiKey: process.env.OPENAI_API_KEY,
+    // Flatten patterns for string-similarity
+    const allPatterns: { pattern: string; intentId: string }[] = [];
+    chatData.intents.forEach(intent => {
+        intent.patterns.forEach(pattern => {
+            allPatterns.push({ pattern: pattern.toLowerCase(), intentId: intent.id });
+        });
     });
 
-    // Build conversation history
-    const messageHistory = [
-      ["system", systemPrompt],
-      ...(history || []).map((msg: { role: string; content: string }) => [
-        msg.role === "user" ? "user" : "assistant",
-        msg.content,
-      ]),
-      ["user", message],
-    ];
+    // Find best match among all patterns
+    const matches = stringSimilarity.findBestMatch(userMessage, allPatterns.map(p => p.pattern));
+    const bestPatternMatch = matches.bestMatch;
 
-    const prompt = ChatPromptTemplate.fromMessages(messageHistory);
-    const chain = prompt.pipe(llm).pipe(new StringOutputParser());
+    if (bestPatternMatch.rating > 0.4) { // Threshold for fuzzy match
+        const matchedPatternObj = allPatterns[matches.bestMatchIndex];
+        const intent = chatData.intents.find(i => i.id === matchedPatternObj.intentId);
+        if (intent) {
+            return NextResponse.json({ response: intent.response });
+        }
+    }
 
-    const response = await chain.invoke({});
+    // 2. Keyword Fallback (if fuzzy fail)
+    for (const intent of chatData.intents) {
+        for (const pattern of intent.patterns) {
+            if (userMessage.includes(pattern)) {
+                return NextResponse.json({ response: intent.response });
+            }
+        }
+    }
 
-    return NextResponse.json({ response });
-  } catch (error: any) {
-    console.error("Chat API error:", error);
+    return NextResponse.json({ response: chatData.default_response });
+
+  } catch (error) {
+    console.error('Chat API Error:', error);
     return NextResponse.json(
-      { error: error.message || "An error occurred while processing your request" },
+      { response: "I'm having trouble processing that right now. Please try again." },
       { status: 500 }
     );
   }
 }
-

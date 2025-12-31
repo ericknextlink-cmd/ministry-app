@@ -1,94 +1,113 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { DashboardCard } from "@/components/admin/kpi-card";
 import { ActivityChart } from "@/components/admin/activity-chart";
 import { RecentApplicationsTable } from "@/components/admin/data-table";
 import { ProgressBars } from "@/components/admin/progress-bars";
-import { kpiData, activityData, progressData, applicationsData, KpiData, ApplicationData } from "@/lib/admin-data";
+import { activityData, progressData } from "@/lib/admin-data"; // Keep charts for now
+import { adminApi } from "@/lib/api";
+import { toast } from "sonner";
+import { Application } from "@/lib/types"; // Import Application type
 
 export default function AdminDashboard() {
-  const [period, setPeriod] = useState("all-time");
-  const [certificateType, setCertificateType] = useState("all");
-  const [certificateClass, setCertificateClass] = useState("all");
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<any>(null);
+  const [applications, setApplications] = useState<Application[]>([]); // Explicitly type applications
 
-  const filteredKpiData = kpiData; // TODO: Filter data based on period
-  const filteredActivityData = activityData; // TODO: Filter data based on period
-  const filteredProgressData = progressData; // TODO: Filter data based on certificate type
-  const filteredApplicationsData = applicationsData.filter((app: ApplicationData) => {
-    if (certificateType === "all") return true;
-    return app.certificateType === certificateType;
-  });
+  useEffect(() => {
+    const loadData = async () => {
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+            router.push("/auth");
+            return;
+        }
+
+        try {
+            const [statsData, appsData] = await Promise.all([
+                adminApi.getStats(token),
+                adminApi.getApplications(token)
+            ]);
+            setStats(statsData);
+            setApplications(appsData); // appsData is now correctly typed as Application[]
+        } catch (error: any) {
+            console.error("Failed to load admin data", error);
+            toast.error("Failed to load admin data. Are you an admin?");
+            if (error.message.includes("403") || error.message.includes("401")) {
+                router.push("/auth");
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    loadData();
+  }, [router]);
+
+  if (loading) {
+      return <div className="p-8 text-center">Loading Admin Dashboard...</div>;
+  }
+
+  // Map stats to KPI cards
+  const kpiCards = [
+      { title: "Total Applications", value: stats?.total_applications || 0, trend: "+12%", bgColor: "bg-blue-500" },
+      { title: "Pending Reviews", value: stats?.pending_reviews || 0, trend: "+5%", bgColor: "bg-yellow-500" },
+      { title: "Approved", value: stats?.approved_certificates || 0, trend: "+8%", bgColor: "bg-green-500" },
+      { title: "Rejected", value: stats?.rejected_applications || 0, trend: "-2%", bgColor: "bg-red-500" },
+  ];
+
+  console.log("Admin Stats:", stats); // DEBUG LOG
+
+  // Map type breakdown to Progress Bars
+  const total = stats?.total_applications || 1; // Avoid division by zero
+  const typeBreakdown = stats?.type_breakdown || {};
+  
+  const getCount = (key: string) => (typeBreakdown[key] || typeBreakdown[key.toUpperCase()] || typeBreakdown[key.toLowerCase()] || 0);
+
+  console.log("Total Applications:", total);
+  console.log("Building Count:", getCount('building'));
+  console.log("Electrical Count:", getCount('electrical'));
+  console.log("Plumbing Count:", getCount('plumbing'));
+
+  const realProgressData = [
+      { 
+          title: "General Building & Civil", 
+          value: Math.round(((getCount('building') + getCount('civil'))) / total * 100), 
+          color: "green" // Use base color name for Tailwind
+      },
+      { 
+          title: "Electrical Works", 
+          value: Math.round(getCount('electrical') / total * 100), 
+          color: "red" 
+      },
+      { 
+          title: "Plumbing Works", 
+          value: Math.round(getCount('plumbing') / total * 100), 
+          color: "blue" 
+      },
+  ];
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-center space-y-4 md:space-y-0 md:space-x-4">
-        <div>
-          <label htmlFor="period" className="block text-xs font-medium text-gray-500 mb-1">
-            Period: All-time
-          </label>
-          <select
-            id="period"
-            value={period}
-            onChange={(e) => setPeriod(e.target.value)}
-            className="w-full sm:w-40 p-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-          >
-            <option value="all-time">All-time</option>
-            <option value="last-30-days">Last 30 Days</option>
-            <option value="last-quarter">Last Quarter</option>
-          </select>
-        </div>
 
-        <div>
-          <label htmlFor="type" className="block text-xs font-medium text-gray-500 mb-1">
-            Certificate Type: All
-          </label>
-          <select
-            id="type"
-            value={certificateType}
-            onChange={(e) => setCertificateType(e.target.value)}
-            className="w-full sm:w-40 p-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-          >
-            <option value="all">All</option>
-            <option value="Electrical">Electrical</option>
-            <option value="Plumbing">Plumbing</option>
-            <option value="Construct & Civil">Civil</option>
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="class" className="block text-xs font-medium text-gray-500 mb-1">
-            Class: All
-          </label>
-          <select
-            id="class"
-            value={certificateClass}
-            onChange={(e) => setCertificateClass(e.target.value)}
-            className="w-full sm:w-40 p-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-          >
-            <option value="all">All</option>
-            <option value="A">A</option>
-            <option value="B">B</option>
-            <option value="C">C</option>
-          </select>
-        </div>
-      </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {filteredKpiData.map((data: KpiData, index: number) => (
-          <DashboardCard key={index} title={data.title} value={data.value} trend={data.trend} bgColor={data.bgColor} />
+        {kpiCards.map((data, index) => (
+          <DashboardCard key={index} title={data.title} value={data.value.toString()} trend={data.trend} bgColor={data.bgColor} />
         ))}
       </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <ActivityChart data={filteredActivityData} />
+          <ActivityChart data={activityData} />
         </div>
         <div>
-          <ProgressBars data={filteredProgressData} />
+          <ProgressBars data={realProgressData} />
         </div>
       </div>
       <div>
-        <RecentApplicationsTable data={filteredApplicationsData} />
+        <RecentApplicationsTable data={applications} />
       </div>
     </div>
   );

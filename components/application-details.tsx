@@ -13,120 +13,137 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ApplicationType } from "./application-card";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { ApplicationType } from "./application-card"; // Import shared type
+import { useApplication } from "@/contexts/ApplicationContext"; // Use context for updates
+import { toast } from "sonner";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 
 interface ApplicationDetailsProps {
   application: ApplicationType;
-  applications: ApplicationType[];
-  onApplicationChange: (appId: string) => void;
+  onApplicationChange: (appId: number) => void;
   onSubmitApplication: () => void;
 }
 
+// Data mapping for certificate classes and fees
 const certificateData = {
-  "general-building": {
+  "building": {
     category: "DK",
     classes: [
-      {
-        id: "D1K1",
-        label: "D1K1",
-        registration: "¢3500",
-        renewal: "¢2010",
-        financialClass: "Over $500,000",
-        requiresLLC: true,
-      },
-      {
-        id: "D2K2",
-        label: "D2K2",
-        registration: "¢2500",
-        renewal: "¢410",
-        financialClass: "$200,000 - $500,000",
-        requiresLLC: true,
-      },
-      {
-        id: "D3K3",
-        label: "D3K3",
-        registration: "¢600",
-        renewal: "¢210",
-        financialClass: "$75,000 - $200,000",
-        requiresLLC: false,
-      },
+      { id: "D1K1", label: "D1K1", registration: "¢3500", renewal: "¢2010", financialClass: "Over $500,000", requiresLLC: true },
+      { id: "D2K2", label: "D2K2", registration: "¢2500", renewal: "¢410", financialClass: "$200,000 - $500,000", requiresLLC: true },
+      { id: "D3K3", label: "D3K3", registration: "¢600", renewal: "¢210", financialClass: "$75,000 - $200,000", requiresLLC: false },
+    ],
+  },
+  "civil": { // Reuse building data for civil for now
+    category: "DK",
+    classes: [
+      { id: "D1K1", label: "D1K1", registration: "¢3500", renewal: "¢2010", financialClass: "Over $500,000", requiresLLC: true },
+      { id: "D2K2", label: "D2K2", registration: "¢2500", renewal: "¢410", financialClass: "$200,000 - $500,000", requiresLLC: true },
     ],
   },
   "electrical": {
     category: "E",
     classes: [
-      {
-        id: "E1",
-        label: "E1",
-        registration: "¢1500",
-        renewal: "¢410",
-        financialClass: "Over $200,000",
-        requiresLLC: false,
-      },
-      {
-        id: "E2",
-        label: "E2",
-        registration: "¢1000",
-        renewal: "¢210",
-        financialClass: "$75,000 - $200,000",
-        requiresLLC: false,
-      },
-      {
-        id: "E3",
-        label: "E3",
-        registration: "¢300",
-        renewal: "¢50",
-        financialClass: "Up to $75,000",
-        requiresLLC: false,
-      },
+      { id: "E1", label: "E1", registration: "¢1500", renewal: "¢410", financialClass: "Over $200,000", requiresLLC: false },
+      { id: "E2", label: "E2", registration: "¢1000", renewal: "¢210", financialClass: "$75,000 - $200,000", requiresLLC: false },
+      { id: "E3", label: "E3", registration: "¢300", renewal: "¢50", financialClass: "Up to $75,000", requiresLLC: false },
     ],
   },
   "plumbing": {
     category: "G",
     classes: [
-      {
-        id: "G1",
-        label: "G1",
-        registration: "¢1000",
-        renewal: "¢210",
-        financialClass: "Over $200,000",
-        requiresLLC: false,
-      },
-      {
-        id: "G2",
-        label: "G2",
-        registration: "¢400",
-        renewal: "¢50",
-        financialClass: "Up to $50,000",
-        requiresLLC: false,
-      },
+      { id: "G1", label: "G1", registration: "¢1000", renewal: "¢210", financialClass: "Over $200,000", requiresLLC: false },
+      { id: "G2", label: "G2", registration: "¢400", renewal: "¢50", financialClass: "Up to $50,000", requiresLLC: false },
     ],
   },
 };
 
 export function ApplicationDetails({
   application,
-  applications,
   onApplicationChange,
   onSubmitApplication,
 }: ApplicationDetailsProps) {
-  const certData = certificateData[application.id as keyof typeof certificateData] || certificateData["general-building"];
+  const router = useRouter();
+  const { updateApplication, cancelApplication } = useApplication();
   
-  const [selectedClass, setSelectedClass] = useState(certData.classes[0].id);
+  // Get data for this certificate type
+  const certData = certificateData[application.certificate_type as keyof typeof certificateData] || certificateData["building"];
+  
+  // State for class selection
+  const [selectedClass, setSelectedClass] = useState(application.certificate_class || certData.classes[0].id);
   const [isConfirmed, setIsConfirmed] = useState(false);
-  
-  const handleSubmit = () => {
-    if (isConfirmed) {
-      onSubmitApplication();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+
+  // Update selected class if application changes
+  useEffect(() => {
+    if (application.certificate_class) {
+        setSelectedClass(application.certificate_class);
+    } else {
+        setSelectedClass(certData.classes[0].id);
     }
+  }, [application, certData]);
+  
+  const handleSubmit = async () => {
+    if (isConfirmed) {
+      setIsSubmitting(true);
+      try {
+        await updateApplication(application.id, {
+            certificate_class: selectedClass,
+            status: "pending_payment", // Move to next step
+            current_step: 3 // Assuming 3 is payment
+        });
+        toast.success("Class selected successfully!");
+        onSubmitApplication();
+      } catch (error) {
+        toast.error("Failed to update application.");
+        console.error(error);
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
+  };
+
+  const handleCancelClick = () => {
+      setShowCancelDialog(true);
+  };
+
+  const handleConfirmCancel = async () => {
+      setIsCancelling(true);
+      try {
+          await cancelApplication(application.id);
+          toast.success("Application cancelled successfully.");
+          onApplicationChange(0); // Close details view or similar
+      } catch (error: any) {
+          toast.error(error.message || "Failed to cancel application.");
+      } finally {
+          setIsCancelling(false);
+          setShowCancelDialog(false);
+      }
   };
 
   const selectedClassData = certData.classes.find(c => c.id === selectedClass) || certData.classes[0];
 
-  const getShapeLarge = (shape: string) => {
-    return shape.replace(".svg", "-large.svg");
+  // Helper for display assets
+  const getDisplayData = (type: string) => {
+    switch (type) {
+      case "building":
+      case "civil":
+        return { name: "General Building & Civil Works", shape: "/green-shape.svg" };
+      case "electrical":
+        return { name: "Electrical Works", shape: "/red-shape.svg" };
+      case "plumbing":
+        return { name: "Plumbing Works", shape: "/blue-shape.svg" };
+      default:
+        return { name: "Unknown Certification", shape: "/blue-shape.svg" };
+    }
   };
+  
+  const { name, shape } = getDisplayData(application.certificate_type);
+  const shapeLarge = shape.replace(".svg", "-large.svg");
 
   return (
     <motion.div
@@ -138,32 +155,12 @@ export function ApplicationDetails({
     >
       {/* Certification Type and Category Bars */}
       <div className="grid grid-cols-2 gap-4">
-        {/* Certification Type Bar */}
-        <div className="flex items-center rounded-full border bg-white px-6 py-3 shadow-sm dark:bg-gray-950">
-          <Select
-            value={application.id}
-            onValueChange={(value) => {
-              onApplicationChange(value);
-              const newCertData = certificateData[value as keyof typeof certificateData];
-              if (newCertData) {
-                setSelectedClass(newCertData.classes[0].id);
-              }
-            }}
-          >
-            <SelectTrigger className="w-full border-0 bg-transparent p-0 [&>svg]:hidden">
-              <div className="flex items-center gap-2">
+        {/* Certification Type Bar - Read Only */}
+        <div className="flex items-center rounded-full border bg-white px-6 py-3 shadow-sm dark:bg-gray-950 opacity-80 cursor-not-allowed">
+            <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">Certification Type:</span>
-                <SelectValue />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              {applications.map((app) => (
-                <SelectItem key={app.id} value={app.id}>
-                  {app.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                <span className="text-sm font-bold ml-2">{name}</span>
+            </div>
         </div>
 
         {/* Category Bar */}
@@ -185,8 +182,8 @@ export function ApplicationDetails({
       >
         <div className="relative h-[169px] w-full max-w-[720px]">
           <Image
-            src={getShapeLarge(application.shape)}
-            alt={application.name}
+            src={shapeLarge}
+            alt={name}
             fill
             className="object-contain object-left"
           />
@@ -195,7 +192,7 @@ export function ApplicationDetails({
           <div className="absolute inset-0 flex items-center justify-between p-6">
             <div className="relative top-0 lg:-top-10 md:top-0 left-0 lg:left-2 md:left-0 scale-[0.8] lg:scale-[1.0] md:scale-[0.7]">
               <h3 className="text-xl font-semibold text-white">
-                {application.name}
+                {name}
               </h3>
             </div>
             <div className="relative top-0 lg:-top-14  md:top-0 left-0 lg:-left-4 md:left-0 scale-[0.8] lg:scale-[1.0] md:scale-[0.7]">
@@ -206,9 +203,11 @@ export function ApplicationDetails({
       </motion.div>
 
       {/* Class Type Dropdown */}
-      <Select value={selectedClass} onValueChange={setSelectedClass}>
+      <Select value={selectedClass} onValueChange={setSelectedClass} disabled={application.status !== "draft" || application.current_step >= 3}>
         <SelectTrigger className="flex w-full items-center justify-between rounded-full border bg-white px-6 py-3 h-10 shadow-sm dark:bg-gray-950 [&>svg]:hidden">
-          <span className="text-base font-medium">Select Class Type</span>
+          <span className="text-base font-medium">
+             {application.status !== "draft" || application.current_step >= 3 ? selectedClassData.label : "Select Class Type"}
+          </span>
           <div className="flex items-center gap-3">
             <SelectValue className="relaive -left-40" />
             <div className="pointer-events-none flex h-8 w-8 items-center justify-center rounded-md border-2 border-black bg-white dark:bg-gray-800">
@@ -252,33 +251,98 @@ export function ApplicationDetails({
         </div>
       </div>
 
-      {/* Confirmation Checkbox */}
-      <div className="flex items-start gap-3">
-        <Checkbox
-          id="confirm"
-          checked={isConfirmed}
-          onCheckedChange={(checked) => setIsConfirmed(checked as boolean)}
-          className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-        />
-        <Label
-          htmlFor="confirm"
-          className="cursor-pointer text-base font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-        >
-          I confirm the Selected Certificate Type and Class is accurate
-        </Label>
-      </div>
+      {/* Confirmation Checkbox - Only show if in draft mode and selection phase */}
+      {application.status === "draft" && application.current_step < 3 && (
+        <div className="flex items-start gap-3">
+            <Checkbox
+            id="confirm"
+            checked={isConfirmed}
+            onCheckedChange={(checked) => setIsConfirmed(checked as boolean)}
+            className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+            />
+            <Label
+            htmlFor="confirm"
+            className="cursor-pointer text-base font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+            I confirm the Selected Certificate Type and Class is accurate
+            </Label>
+        </div>
+      )}
 
-      {/* Submit Button */}
-      <div className="flex justify-end">
-        <Button
-          size="lg"
-          disabled={!isConfirmed}
-          onClick={handleSubmit}
-          className="rounded-full bg-blue-600 px-12 text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          Submit
-        </Button>
-      </div>
+      {/* Submit Button - Only show if in draft mode and selection phase */}
+      {application.status === "draft" && application.current_step < 3 && (
+        <div className="flex justify-end">
+            <Button
+            size="lg"
+            disabled={!isConfirmed || isSubmitting}
+            onClick={handleSubmit}
+            className="rounded-full bg-blue-600 px-12 text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+            {isSubmitting ? "Submitting..." : "Submit"}
+            </Button>
+        </div>
+      )}
+      
+      {/* If paid already, show Continue to Company Info */}
+      {application.current_step >= 4 && (
+          <div className="flex justify-end gap-4">
+              <div className="flex-1 p-4 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900/30 rounded-lg flex items-center gap-3 text-green-700 dark:text-green-400">
+                  <Image src="/circle-check.png" alt="Paid" width={20} height={20} />
+                  <p className="text-sm font-medium">Payment confirmed. You can now complete your company profile.</p>
+              </div>
+              <Button
+                size="lg"
+                onClick={() => router.push("/dashboard/company")}
+                className="rounded-full bg-[#033783] px-12 text-white hover:bg-[#022555]"
+              >
+                Continue Application
+              </Button>
+          </div>
+      )}
+
+      {/* If already past draft, maybe show a status message or "Proceed to Payment" if pending */}
+      {(application.status === "pending_payment" && application.current_step < 4) && (
+         <div className="flex justify-end gap-4">
+            <Button
+                variant="destructive"
+                onClick={handleCancelClick}
+                disabled={isCancelling}
+            >
+                {isCancelling ? "Cancelling..." : "Cancel Application"}
+            </Button>
+            <Button
+            size="lg"
+            onClick={onSubmitApplication}
+            className="rounded-full bg-green-600 px-12 text-white hover:bg-green-700"
+            >
+            Proceed to Payment
+            </Button>
+        </div>
+      )}
+
+      {/* Show Cancel for other statuses too (Draft, Submitted, In Review) */}
+      {(application.status === "draft" || application.status === "submitted" || application.status === "in_review") && (
+          <div className="mt-8 pt-4 border-t flex justify-between items-center">
+              <p className="text-sm text-gray-500">Need to stop this application?</p>
+              <Button 
+                variant="ghost" 
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                onClick={handleCancelClick}
+                disabled={isCancelling}
+              >
+                  {isCancelling ? "Cancelling..." : "Cancel Application"}
+              </Button>
+          </div>
+      )}
+      <ConfirmationDialog
+        isOpen={showCancelDialog}
+        onClose={() => setShowCancelDialog(false)}
+        onConfirm={handleConfirmCancel}
+        title="Cancel Application"
+        description="Are you sure you want to cancel this application? This action cannot be undone and you will need to start a new application if you wish to proceed later."
+        confirmLabel="Yes, Cancel Application"
+        isLoading={isCancelling}
+      />
     </motion.div>
   );
 }
