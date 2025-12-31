@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { adminApi } from "@/lib/api";
-import { Application } from "@/contexts/ApplicationContext";
+import { adminApi, Application } from "@/lib/api";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
