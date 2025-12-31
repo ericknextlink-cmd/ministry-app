@@ -3,9 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { RecentApplicationsTable } from "@/components/admin/data-table";
-import { adminApi } from "@/lib/api";
+import { adminApi, Application } from "@/lib/api";
 import { toast } from "sonner";
-import { Application } from "@/contexts/ApplicationContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
