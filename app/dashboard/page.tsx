@@ -83,7 +83,6 @@ function DashboardContent() {
   };
   
   const handleSubmitApplication = () => {
-    // Navigate to payment page
     router.push("/dashboard/payment");
   };
 
@@ -96,27 +95,23 @@ function DashboardContent() {
     setIsCreating(true);
     try {
         const newApp = await createApplication({
-            certificate_type: newAppType as any, // Type cast as backend expects specific strings
+            certificate_type: newAppType as any,
             description: `New ${newAppType} application` 
         });
         toast.success("Application created successfully!");
         setIsNewAppModalOpen(false);
         setNewAppType("");
-        setSelectedApplicationId(newApp.id); // Redirect to details view
+        setSelectedApplicationId(newApp.id);
     } catch (err: any) {
         const errorMessage = err.message || "Failed to create application";
-        
         if (errorMessage.includes("already have an active application")) {
             toast.warning("Active Application Found", {
                 description: `You already have an active application for this certificate type. Please complete that one first.`,
                 duration: 5000,
             });
         } else {
-            toast.error("Application Error", {
-                description: errorMessage
-            });
+            toast.error("Application Error", { description: errorMessage });
         }
-        console.error(err);
     } finally {
         setIsCreating(false);
     }
@@ -155,24 +150,16 @@ function DashboardContent() {
     );
   }
 
-  if (!isAuthenticated && !loading) {
-      return null;
-  }
+  if (!isAuthenticated && !loading) return null;
 
-  // Filter out cancelled applications completely
   const visibleApplications = applications.filter(app => app.status !== 'cancelled');
-  
   const totalApplications = visibleApplications.length;
   const inProgressApplications = visibleApplications.filter(app => ["in_review", "draft", "pending_payment", "submitted"].includes(app.status)).length;
   const approvedApplications = visibleApplications.filter(app => app.status === "approved").length;
-
-  // Show active and approved applications in the main list
   const activeAppsList = visibleApplications.filter(app => ["draft", "submitted", "pending_payment", "in_review", "approved"].includes(app.status));
 
-
   return (
-    <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-900 relative">
-      {/* Sidebar */}
+    <div className="flex min-h-screen bg-white dark:bg-gray-900 relative">
       <DashboardSidebar
         isOpen={sidebarOpen}
         isCollapsed={sidebarCollapsed}
@@ -180,12 +167,10 @@ function DashboardContent() {
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
 
-      {/* Main Content */}
-      <div className={`flex flex-1 flex-col overflow-hidden transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
+      <div className={`flex flex-1 flex-col transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
         <DashboardHeader onMenuClick={() => setSidebarOpen(true)} />
 
-        {/* Dashboard Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        <main className="flex-1 p-4 md:p-6 lg:p-8">
           <AnimatePresence mode="wait">
             {!selectedApplicationId ? (
               <motion.div
@@ -193,42 +178,40 @@ function DashboardContent() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="space-y-6"
+                className="space-y-8 max-w-7xl mx-auto"
               >
-                {/* Action Bar */}
-                <div className="flex justify-end mb-4">
+                {/* Header Action Bar */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 dark:border-gray-800 pb-6">
+                    <div>
+                        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Applicant Dashboard</h1>
+                        <p className="text-gray-500 dark:text-gray-400">Manage your classification certificates</p>
+                    </div>
                     <Button 
                         onClick={() => setIsNewAppModalOpen(true)}
-                        className="bg-[#033783] hover:bg-[#022555] text-white flex items-center gap-2"
+                        className="bg-[#033783] hover:bg-[#022555] text-white w-full sm:w-auto px-6 py-6 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-900/10"
                     >
-                        <Plus className="h-4 w-4" />
-                        New Application
+                        <Plus className="h-5 w-5" />
+                        Start New Application
                     </Button>
                 </div>
 
-                {/* Stats Cards */}
-                <div className="grid gap-4 md:grid-cols-3 scale-[0.8] md:scale-[0.8] lg:scale-[0.95]">
-                  <StatCard
-                    label="Applications"
-                    value={totalApplications.toString()}
-                  />
-                  <StatCard
-                    label="In progress"
-                    value={inProgressApplications.toString()}
-                  />
-                  <StatCard
-                    label="Approved"
-                    value={approvedApplications.toString()}
-                  />
+                {/* Stats Cards - Responsive Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <StatCard label="Total Applications" value={totalApplications.toString()} />
+                  <StatCard label="In Progress" value={inProgressApplications.toString()} />
+                  <StatCard label="Approved" value={approvedApplications.toString()} />
                 </div>
 
-                {/* Application Cards - Active */}
-                {activeAppsList.length > 0 && (
-                    <div className="space-y-4">
-                        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Active Applications</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Main List Section */}
+                {activeAppsList.length > 0 ? (
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-2">
+                            <Activity className="h-5 w-5 text-[#033783]" />
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Active Applications</h2>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                             {activeAppsList.map((app) => (
-                                <div key={app.id} className="w-full">
+                                <div key={app.id}>
                                     <ApplicationCard
                                         application={app}
                                         onClick={() => handleCardClick(app.id)}
@@ -237,118 +220,107 @@ function DashboardContent() {
                             ))}
                         </div>
                     </div>
-                )}
-
-                {visibleApplications.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-                        <p>No applications yet.</p>
-                        <p className="text-sm">Click "New Application" to get started.</p>
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-20 bg-gray-50 dark:bg-gray-900/50 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-800 text-gray-500">
+                        <div className="h-16 w-16 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                            <Plus className="h-8 w-8 text-gray-300" />
+                        </div>
+                        <p className="text-lg font-medium">No applications found</p>
+                        <p className="text-sm">Click "Start New Application" to begin your journey.</p>
                     </div>
                 )}
 
-                {/* Dynamic Progress Trackers */}
+                {/* Process Trackers - Only show on tablets and above, or simplify for mobile */}
                 {activeApplications.length > 0 && (
-                    <div className="mt-12 mb-8 space-y-8">
-                        {activeApplications.map(app => (
-                            <div key={app.id} className="p-6 bg-white dark:bg-gray-950 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm">
-                                <ProgressTracker application={app} />
-                            </div>
-                        ))}
+                    <div className="space-y-6">
+                        <h2 className="text-xl font-bold">Progress Timeline</h2>
+                        <div className="space-y-4">
+                            {activeApplications.map(app => (
+                                <div key={app.id} className="p-4 md:p-6 bg-white dark:bg-gray-950 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-x-auto">
+                                    <div className="min-w-[600px] md:min-w-0">
+                                        <ProgressTracker application={app} />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 )}
 
-                {/* Bottom Section */}
-                <div className="grid gap-6 md:grid-cols-2 mt-20">
-                  {/* Application Process Status */}
-                  <div className="rounded-lg border bg-white p-6 dark:bg-gray-950 shadow-sm h-full">
-                    <h3 className="mb-4 text-center text-lg font-semibold">
-                      Application Process Status
-                    </h3>
-                    <div className="flex justify-center items-center h-[200px]">
+                {/* Bottom Section - Responsive Stacking */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Status Circle */}
+                  <div className="rounded-2xl border bg-white p-8 dark:bg-gray-950 shadow-sm flex flex-col items-center">
+                    <h3 className="mb-8 text-lg font-bold text-center">Current Progress Overview</h3>
+                    <div className="relative">
                       <svg className="h-48 w-48" viewBox="0 0 200 200">
+                        <circle cx="100" cy="100" r="80" fill="none" stroke="#E5E7EB" strokeWidth="16" className="dark:stroke-gray-800" />
                         <circle
-                          cx="100"
-                          cy="100"
-                          r="80"
-                          fill="none"
-                          stroke="#E5E7EB"
-                          strokeWidth="20"
-                          className="dark:stroke-gray-700"
-                        />
-                        <circle
-                          cx="100"
-                          cy="100"
-                          r="80"
-                          fill="none"
-                          stroke="#4ADE80"
-                          strokeWidth="20"
+                          cx="100" cy="100" r="80" fill="none" stroke="#4ADE80" strokeWidth="16"
                           strokeDasharray="502"
                           strokeDashoffset={502 * (1 - (getCompletionPercentage(applications[0]?.id || 0) / 100))}
                           strokeLinecap="round"
                           transform="rotate(-90 100 100)"
                           className="transition-all duration-1000"
                         />
-                        <text
-                          x="100"
-                          y="110"
-                          textAnchor="middle"
-                          fontSize="36"
-                          fontWeight="bold"
-                          className="fill-gray-900 dark:fill-gray-100"
-                        >
-                          {getCompletionPercentage(applications[0]?.id || 0)}%
-                        </text>
                       </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-4xl font-bold text-gray-900 dark:text-white">
+                            {getCompletionPercentage(applications[0]?.id || 0)}%
+                        </span>
+                        <span className="text-xs text-gray-500 uppercase tracking-widest font-bold">Complete</span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Pending Payment Card (Dynamic) */}
+                  {/* Pending Payment Action Card */}
                   {pendingPaymentApps.length > 0 ? (
-                      <div className="relative rounded-lg border bg-black p-6 text-white shadow-lg h-full flex flex-col justify-between overflow-hidden group">
-                        
-                        <div className="flex items-center gap-4 mb-4 z-10">
-                            <div className="bg-white rounded-full p-2 text-yellow-500">
-                                <Activity className="h-6 w-6" />
-                            </div>
-                            <h3 className="text-xl font-semibold">
-                                {pendingPaymentApps[currentPaymentIndex].status === 'draft' ? 'Continue Application' : 'Pending Payment'}
-                            </h3>
-                            {pendingPaymentApps.length > 1 && (
-                                <span className="ml-auto text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded-full">
-                                    {currentPaymentIndex + 1} / {pendingPaymentApps.length}
-                                </span>
-                            )}
+                      <div className="relative rounded-2xl border bg-[#033783] p-8 text-white shadow-xl flex flex-col justify-between overflow-hidden">
+                        <div className="absolute top-0 right-0 p-4 opacity-10">
+                            <Activity className="h-32 w-32" />
                         </div>
                         
-                        <AnimatePresence mode="wait">
-                            <motion.div 
-                                key={pendingPaymentApps[currentPaymentIndex].id}
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                transition={{ duration: 0.2 }}
-                                className="space-y-3 mb-6 z-10 flex-1"
-                            >
-                                <div>
-                                    <p className="text-sm text-gray-400">Application Type</p>
-                                    <p className="text-lg font-medium capitalize">{pendingPaymentApps[currentPaymentIndex].certificate_type.replace("-", " ")}</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm text-gray-400">Application ID</p>
-                                    <p className="text-base font-mono">#{pendingPaymentApps[currentPaymentIndex].id}</p>
-                                </div>
-                                {pendingPaymentApps[currentPaymentIndex].certificate_class && (
-                                    <div>
-                                        <p className="text-sm text-gray-400">Class</p>
-                                        <p className="text-base">{pendingPaymentApps[currentPaymentIndex].certificate_class}</p>
+                        <div className="space-y-6 z-10">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-white/20 p-2 rounded-lg">
+                                        <Activity className="h-6 w-6 text-yellow-400" />
                                     </div>
+                                    <h3 className="text-xl font-bold">
+                                        {pendingPaymentApps[currentPaymentIndex].status === 'draft' ? 'Continue Application' : 'Payment Required'}
+                                    </h3>
+                                </div>
+                                {pendingPaymentApps.length > 1 && (
+                                    <span className="text-xs font-bold bg-white/10 px-3 py-1 rounded-full border border-white/10">
+                                        {currentPaymentIndex + 1} of {pendingPaymentApps.length}
+                                    </span>
                                 )}
-                            </motion.div>
-                        </AnimatePresence>
+                            </div>
+                            
+                            <AnimatePresence mode="wait">
+                                <motion.div 
+                                    key={pendingPaymentApps[currentPaymentIndex].id}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    className="space-y-4"
+                                >
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <p className="text-xs text-blue-200 uppercase font-bold tracking-wider">Service Type</p>
+                                            <p className="text-lg font-medium capitalize truncate">{pendingPaymentApps[currentPaymentIndex].certificate_type.replace("-", " ")}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-blue-200 uppercase font-bold tracking-wider">Application ID</p>
+                                            <p className="text-lg font-mono truncate">#{pendingPaymentApps[currentPaymentIndex].id}</p>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            </AnimatePresence>
+                        </div>
 
-                        <div className="space-y-3 z-10">
+                        <div className="mt-8 space-y-4 z-10">
                             <Button 
-                                className="w-full bg-[#0062FF] hover:bg-blue-700 text-white font-medium py-6 text-lg transition-colors"
+                                className="w-full bg-white hover:bg-blue-50 text-[#033783] font-bold py-6 text-lg rounded-xl transition-all active:scale-[0.98]"
                                 onClick={() => {
                                     const app = pendingPaymentApps[currentPaymentIndex];
                                     if (app.status === 'pending_payment') {
@@ -358,32 +330,24 @@ function DashboardContent() {
                                     }
                                 }}
                             >
-                                {pendingPaymentApps[currentPaymentIndex].status === 'draft' ? 'Continue' : 'Pay Now'}
+                                {pendingPaymentApps[currentPaymentIndex].status === 'draft' ? 'Continue Setup' : 'Pay Invoice Now'}
                             </Button>
                             
                             {pendingPaymentApps.length > 1 && (
-                                <div className="flex justify-between items-center px-1">
-                                    <Button variant="ghost" size="icon" onClick={prevPayment} className="h-8 w-8 rounded-full hover:bg-white/10 text-white">
-                                        <ChevronLeft className="h-4 w-4" />
+                                <div className="flex justify-center gap-4">
+                                    <Button variant="ghost" size="sm" onClick={prevPayment} className="hover:bg-white/10 text-white rounded-full h-10 w-10 p-0">
+                                        <ChevronLeft className="h-5 w-5" />
                                     </Button>
-                                    <div className="flex gap-1">
-                                        {pendingPaymentApps.map((_, idx) => (
-                                            <div 
-                                                key={idx} 
-                                                className={`h-1.5 rounded-full transition-all ${idx === currentPaymentIndex ? 'w-4 bg-[#0062FF]' : 'w-1.5 bg-gray-600'}`}
-                                            />
-                                        ))}
-                                    </div>
-                                    <Button variant="ghost" size="icon" onClick={nextPayment} className="h-8 w-8 rounded-full hover:bg-white/10 text-white">
-                                        <ChevronRight className="h-4 w-4" />
+                                    <Button variant="ghost" size="sm" onClick={nextPayment} className="hover:bg-white/10 text-white rounded-full h-10 w-10 p-0">
+                                        <ChevronRight className="h-5 w-5" />
                                     </Button>
                                 </div>
                             )}
                         </div>
                       </div>
                   ) : (
-                      <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 flex items-center justify-center text-gray-400 h-full">
-                          <p>No payments pending</p>
+                      <div className="rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/20 p-8 flex items-center justify-center text-gray-400">
+                          <p className="font-medium">No urgent tasks pending</p>
                       </div>
                   )}
                 </div>
@@ -394,6 +358,7 @@ function DashboardContent() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
+                className="max-w-4xl mx-auto pb-20"
               >
                 {selectedApp && (
                   <ApplicationDetails
@@ -410,47 +375,48 @@ function DashboardContent() {
 
       {/* New Application Modal */}
       {isNewAppModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <motion.div 
-                initial={{ opacity: 0, scale: 0.9 }}
+                initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-md overflow-hidden border border-gray-200 dark:border-gray-800"
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 dark:border-gray-800"
             >
-                <div className="p-6">
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Start New Application</h2>
-                    <p className="text-gray-500 dark:text-gray-400 mb-6">Select the type of classification certificate you wish to apply for.</p>
+                <div className="p-8">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">New Certification</h2>
+                    <p className="text-gray-500 dark:text-gray-400 mb-8">Choose the classification type you wish to apply for.</p>
                     
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="cert-type">Certificate Type</Label>
+                    <div className="space-y-6">
+                        <div className="space-y-3">
+                            <Label htmlFor="cert-type" className="text-xs font-bold uppercase tracking-widest text-gray-400">Certificate Category</Label>
                             <Select onValueChange={setNewAppType} value={newAppType}>
-                                <SelectTrigger id="cert-type">
+                                <SelectTrigger id="cert-type" className="h-14 rounded-xl border-gray-200 dark:border-gray-800">
                                     <SelectValue placeholder="Select type..." />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="z-[110]">
                                     <SelectItem value="electrical">Electrical Works</SelectItem>
-                                    <SelectItem value="building">General Building & Civil Works</SelectItem>
+                                    <SelectItem value="building">General Building & Civil</SelectItem>
                                     <SelectItem value="plumbing">Plumbing Works</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
                     </div>
 
-                    <div className="flex justify-end gap-3 mt-8">
-                        <Button 
-                            variant="outline" 
-                            onClick={() => setIsNewAppModalOpen(false)}
-                            disabled={isCreating}
-                        >
-                            Cancel
-                        </Button>
+                    <div className="flex flex-col gap-3 mt-10">
                         <Button 
                             onClick={handleCreateApplication}
                             disabled={!newAppType || isCreating}
-                            className="bg-[#033783] text-white hover:bg-[#022555]"
+                            className="bg-[#033783] text-white hover:bg-[#022555] h-14 rounded-xl text-lg font-bold"
                         >
-                            {isCreating ? "Creating..." : "Start Application"}
+                            {isCreating ? "Initializing..." : "Proceed to Application"}
+                        </Button>
+                        <Button 
+                            variant="ghost" 
+                            onClick={() => setIsNewAppModalOpen(false)}
+                            disabled={isCreating}
+                            className="h-12 rounded-xl text-gray-500"
+                        >
+                            Cancel
                         </Button>
                     </div>
                 </div>
@@ -463,25 +429,17 @@ function DashboardContent() {
 
 export default function DashboardPage() {
     return (
-        <Suspense fallback={<div>Loading Dashboard...</div>}>
+        <Suspense fallback={<div className="flex h-screen items-center justify-center text-gray-500">Loading your profile...</div>}>
             <DashboardContent />
         </Suspense>
     );
 }
 
-function StatCard({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function StatCard({ label, value }: { label: string; value: string; }) {
   return (
-    <div className="flex items-center rounded-full border bg-white px-6 py-2 dark:bg-gray-950">
-      <p className="text-sm text-gray-700 dark:text-gray-300">{label} :</p>
-      <p className="text-sm text-gray-900 dark:text-gray-100 ml-2">
-        {value}
-      </p>
+    <div className="flex flex-col items-center justify-center rounded-2xl border bg-white p-6 shadow-sm dark:bg-gray-950 border-gray-100 dark:border-gray-800">
+      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">{label}</p>
+      <p className="text-3xl font-extrabold text-[#033783] dark:text-blue-400">{value}</p>
     </div>
   );
 }

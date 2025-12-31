@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useApplication } from "@/contexts/ApplicationContext"; // Import useApplication
 
@@ -189,7 +189,12 @@ export default function AuthPage() {
                         className="h-12 w-full bg-[#033783] text-white hover:bg-[#022555]"
                         disabled={loading}
                       >
-                        {loading ? "Signing In..." : "Sign in"}
+                        {loading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Signing In...
+                          </>
+                        ) : "Sign in"}
                       </Button>
 
                       <div className="flex justify-center mt-20 relative">
@@ -329,7 +334,12 @@ export default function AuthPage() {
                         className="h-12 w-full bg-[#033783] text-white hover:bg-[#022555]"
                         disabled={loading} // Disable during registration attempt
                       >
-                        {loading ? "Registering..." : "Register"}
+                        {loading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Registering Account...
+                          </>
+                        ) : "Register"}
                       </Button>
 
                       <p className="text-center font-medium text-sm text-black dark:text-gray-400">

@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Header } from "@/components/header";
 import { Chatbot } from "@/components/chatbot";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Phone, Mail, Clock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const carouselItems = [
@@ -38,171 +38,191 @@ const carouselItems = [
 export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // Auto-advance carousel
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % carouselItems.length);
-    }, 10000); // 10 seconds
-
+    }, 10000);
     return () => clearInterval(timer);
   }, []);
 
-  const goToSlide = (index: number) => {
-    setCurrentIndex(index);
-  };
-
-  const goToPrevious = () => {
-    setCurrentIndex((prev) => (prev - 1 + carouselItems.length) % carouselItems.length);
-  };
-
-  const goToNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % carouselItems.length);
-  };
+  const goToSlide = (index: number) => setCurrentIndex(index);
+  const goToPrevious = () => setCurrentIndex((prev) => (prev - 1 + carouselItems.length) % carouselItems.length);
+  const goToNext = () => setCurrentIndex((prev) => (prev + 1) % carouselItems.length);
 
   const currentItem = carouselItems[currentIndex];
 
   return (
-    <>
-    <div className="flex h-screen flex-col overflow-hidden">
+    <div className="flex min-h-screen flex-col bg-white dark:bg-gray-950">
       <Header />
 
-      {/* Main Content - Carousel */}
-      <section className="flex flex-1 overflow-hidden relative">
-        <div className="w-full h-full overflow-auto">
-          <div className="container mx-auto grid h-full min-h-[800px] grid-cols-2 gap-8 px-4 py-8 lg:px-6 transform scale-[0.35] md:scale-[0.55] lg:scale-[0.75] xl:scale-100 origin-top-left">
-            {/* Left Column - Carousel Content */}
-            <div className="flex flex-col justify-center space-y-8 relative scale-[0.9] -top-6">
-              {/* Title */}
-              <h1 className="text-4xl font-bold text-[#033783] dark:text-blue-400">
-                {currentItem.title}
-              </h1>
+      <main className="flex-1">
+        <div className="container mx-auto px-4 py-8 md:py-12 lg:py-16">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            
+            {/* Left Column: Carousel */}
+            <div className="space-y-8 order-2 lg:order-1">
+              <div className="space-y-4 text-center lg:text-left">
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#033783] dark:text-blue-400 leading-tight">
+                  {currentItem.title}
+                </h1>
+              </div>
 
-            {/* Carousel Image Container */}
-            <div className="relative aspect-video w-full overflow-hidden rounded-lg">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={currentIndex}
-                  initial={{ opacity: 0, x: 50 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -50 }}
-                  transition={{ duration: 0.5 }}
-                  className="relative h-full w-full"
-                >
-                  <Image
-                    src={currentItem.image}
-                    alt={currentItem.title}
-                    fill
-                    className="object-cover"
-                  />
-                </motion.div>
-              </AnimatePresence>
+              {/* Carousel Container */}
+              <div className="relative group">
+                <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={currentIndex}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.5 }}
+                      className="absolute inset-0"
+                    >
+                      <Image
+                        src={currentItem.image}
+                        alt={currentItem.title}
+                        fill
+                        className="object-cover"
+                        priority
+                      />
+                    </motion.div>
+                  </AnimatePresence>
 
-              {/* Navigation Arrows */}
-              <button
-                onClick={goToPrevious}
-                className="absolute left-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-lg transition-all hover:bg-white dark:bg-gray-800/90 dark:hover:bg-gray-800"
-                aria-label="Previous slide"
-              >
-                <ChevronLeft className="h-6 w-6" />
-              </button>
-              <button
-                onClick={goToNext}
-                className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-lg transition-all hover:bg-white dark:bg-gray-800/90 dark:hover:bg-gray-800"
-                aria-label="Next slide"
-              >
-                <ChevronRight className="h-6 w-6" />
-              </button>
+                  {/* Navigation Arrows */}
+                  <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={goToPrevious}
+                      className="flex h-10 w-10 items-center justify-center rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-md hover:bg-white"
+                    >
+                      <ChevronLeft className="h-6 w-6 text-gray-900 dark:text-white" />
+                    </button>
+                    <button
+                      onClick={goToNext}
+                      className="flex h-10 w-10 items-center justify-center rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-md hover:bg-white"
+                    >
+                      <ChevronRight className="h-6 w-6 text-gray-900 dark:text-white" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Carousel Indicators */}
+                <div className="mt-6 flex justify-center lg:justify-start gap-2">
+                  {carouselItems.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => goToSlide(index)}
+                      className={`h-1.5 rounded-full transition-all ${
+                        index === currentIndex
+                          ? "w-8 bg-[#033783] dark:bg-blue-400"
+                          : "w-2 bg-gray-300 dark:bg-gray-700 hover:bg-gray-400"
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="bg-gray-50 dark:bg-gray-900/50 p-6 rounded-xl border border-gray-100 dark:border-gray-800">
+                <p className="text-lg md:text-xl text-gray-700 dark:text-gray-300 leading-relaxed italic">
+                  "{currentItem.description}"
+                </p>
+              </div>
             </div>
 
-            {/* Carousel Indicators */}
-            <div className="flex justify-center gap-3">
-              {carouselItems.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => goToSlide(index)}
-                  className={`h-2 w-2 rounded-full transition-all ${
-                    index === currentIndex
-                      ? "w-8 bg-gray-900 dark:bg-gray-300"
-                      : "bg-gray-400 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-400"
-                  }`}
-                  aria-label={`Go to slide ${index + 1}`}
-                />
-              ))}
-            </div>
-
-            {/* Description */}
-            <div className="space-y-4 relative scale-[0.65] -left-20 -top-6">
-              <p className="text-2xl text-black dark:text-gray-300">
-                {currentItem.description}
-              </p>
-            </div>
-          </div>
-
-          {/* Right Column - Fixed Content */}
-          <div className="flex flex-col justify-center space-y-6 relative scale-[0.9] -top-20 left-38">
-            <div className="space-y-6">
-              <h2 className="text-3xl text-gray-900 leading-normal dark:text-gray-100">
-                Welcome to the Ministry of Works, Housing & Water Resources
-                Classification Application Portal
-              </h2>
-              <div className="relative scale-[0.65] -left-26 -top-6">
-                <p className="text-2xl text-black dark:text-gray-300">
-                  Official portal for Classification Certificate Application
+            {/* Right Column: Welcome & CTA */}
+            <div className="space-y-10 order-1 lg:order-2">
+              <div className="space-y-6">
+                <div className="inline-block px-4 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-[#033783] dark:text-blue-300 text-sm font-semibold tracking-wide uppercase">
+                  Official Government Portal
+                </div>
+                <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-gray-900 dark:text-white leading-[1.1]">
+                  Welcome to the <span className="text-[#033783] dark:text-blue-400 text-nowrap">MWHWR</span> Classification Portal
+                </h2>
+                <p className="text-xl text-gray-600 dark:text-gray-400 max-w-lg">
+                  Simplifying certification for contractors in Ghana. Apply, renew, and verify your status online.
                 </p>
               </div>
 
-              <div className="relative scale-[0.6] -left-30 -top-16">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link
+                  href="/auth"
+                  className="inline-flex items-center justify-center px-8 py-4 rounded-full bg-[#033783] hover:bg-[#022555] text-white font-bold text-lg transition-transform hover:scale-105 shadow-lg shadow-blue-900/20"
+                >
+                  Start Your Application
+                </Link>
                 <a
-                  href="/docuemnts/Guideline -MWHWR.pdf"
+                  href="/documents/Guideline-MWHWR.pdf"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-block text-5xl text-[#8E8EAF] hover:text-gray-400 dark:text-gray-400 dark:hover:text-gray-200"
+                  className="inline-flex items-center justify-center px-8 py-4 rounded-full border-2 border-gray-200 dark:border-gray-800 hover:border-[#033783] dark:hover:border-blue-400 text-gray-700 dark:text-gray-300 font-semibold transition-colors"
                 >
-                  Download Certification Guidelines Paper
+                  View Guidelines
                 </a>
               </div>
-            </div>
 
-            {/* Contact Information */}
-            <div className="space-y-1 border-t border-black text-sm text-black dark:text-gray-400 text-left top-32 relative w-[80%]">
-              <p>
-                For inquiries, please contact the Classification Office of the
-                Ministry.
-              </p>
-              <p>Phone: 00 23378478758</p>
-              <p>Email: info@mofh.gov.gh</p>
-              <p>Office Hours: Monday - Friday, 8:30 AM - 4:30 PM</p>
+              {/* Contact Information Card */}
+              <div className="pt-10 border-t border-gray-100 dark:border-gray-800">
+                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-6">Contact the Classification Office</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
+                    <div className="h-10 w-10 rounded-lg bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+                        <Phone className="h-5 w-5 text-[#033783]" />
+                    </div>
+                    <div>
+                        <p className="text-xs font-medium text-gray-400">Call Us</p>
+                        <p className="text-sm font-bold">+233 30 223 1234</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
+                    <div className="h-10 w-10 rounded-lg bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+                        <Mail className="h-5 w-5 text-[#033783]" />
+                    </div>
+                    <div>
+                        <p className="text-xs font-medium text-gray-400">Email Us</p>
+                        <p className="text-sm font-bold">info@mwh.gov.gh</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
+                    <div className="h-10 w-10 rounded-lg bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+                        <Clock className="h-5 w-5 text-[#033783]" />
+                    </div>
+                    <div>
+                        <p className="text-xs font-medium text-gray-400">Office Hours</p>
+                        <p className="text-sm font-bold">Mon - Fri, 8:30am - 4:30pm</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
           </div>
         </div>
-      </section>
+      </main>
 
-      {/* Footer - Fixed at Bottom */}
-      <footer className="bg-white dark:bg-gray-950">
-        <div className="container mx-auto px-4 py-4 md:px-6">
-          <div className="flex flex-col items-center gap-3 text-center text-sm dark:text-gray-500 relative scale-[0.8] text-black">
-            <p>
-              This website is an official service of the Ministry of Works,
-              Housing & Water Resources. All rights reserved. Unauthorized use
-              is prohibited
-            </p>
-            <div className="flex gap-4">
-              <Link href="/privacy-policy" className="hover:text-gray-900 dark:hover:text-gray-100">
+      <footer className="border-t border-gray-100 dark:border-gray-900 py-10">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
+            <div className="space-y-2">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Official service of the Ministry of Works, Housing & Water Resources.
+                </p>
+                <p className="text-xs text-gray-400">
+                  © {new Date().getFullYear()} All rights reserved.
+                </p>
+            </div>
+            <div className="flex gap-6 text-sm font-medium">
+              <Link href="/privacy-policy" className="text-gray-600 hover:text-[#033783] dark:text-gray-400 dark:hover:text-blue-400 transition-colors">
                 Privacy Policy
               </Link>
-              <span className="text-gray-400">|</span>
-              <Link href="/terms-of-use" className="hover:text-gray-900 dark:hover:text-gray-100">
+              <Link href="/terms-of-use" className="text-gray-600 hover:text-[#033783] dark:text-gray-400 dark:hover:text-blue-400 transition-colors">
                 Terms of Use
               </Link>
             </div>
           </div>
         </div>
       </footer>
+
+      <Chatbot />
     </div>
-    
-    {/* Chatbot - Outside main container to ensure visibility */}
-    <Chatbot />
-    </>
   );
 }

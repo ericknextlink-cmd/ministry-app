@@ -20,7 +20,7 @@ export function Header() {
 
   return (
     <>
-      <header className="w-full border-b" style={{ backgroundColor: "#033783" }}>
+      <header className="w-full border-b sticky top-0 z-50 backdrop-blur-md transition-all" style={{ backgroundColor: "rgba(3, 55, 131, 0.95)" }}>
         <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
           {/* Logo and Text as a single button */}
           <Link 
