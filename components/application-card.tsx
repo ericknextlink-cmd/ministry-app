@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { CheckCircle2, Clock, Hourglass, AlertCircle } from "lucide-react";
+import { CheckCircle2, Clock, Hourglass, AlertCircle, Loader2 } from "lucide-react";
 import { useApplication } from "@/contexts/ApplicationContext"; // Import useApplication
 import { api } from "@/lib/api"; // Import api for download
 import { toast } from "sonner"; // Import toast for feedback
@@ -29,6 +30,7 @@ interface ApplicationCardProps {
 
 export function ApplicationCard({ application, onClick }: ApplicationCardProps) {
   const { userToken, user, renewApplication } = useApplication(); // Get userToken and user from context
+  const [isDownloading, setIsDownloading] = useState(false);
   const router = useRouter();
   
   // Helper to map certificate type to display data
@@ -74,6 +76,8 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
   
   const handleDownloadCertificate = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isDownloading) return;
+
     if (isSuspended) {
         toast.error("This certificate has been suspended. Please contact the ministry.");
         return;
@@ -82,6 +86,8 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
         toast.error("Not authenticated.");
         return;
     }
+
+    setIsDownloading(true);
     try {
         // Construct requested filename: Name of Company_Certificate type_Class_Certificate Number.pdf
         const company = (application.company_name || "Company").replace(/\s+/g, "_");
@@ -89,6 +95,7 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
         const certClass = (application.certificate_class || "N/A").replace(/\s+/g, "_");
         const filename = `${company}_${type}_${certClass}_${application.id}.pdf`;
 
+        toast.info("Preparing download...");
         await api.download(
             `/applications/${application.id}/certificate`,
             filename, 
@@ -98,6 +105,8 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
     } catch (error: any) {
         console.error("Download failed:", error);
         toast.error(error.message || "Failed to download certificate.");
+    } finally {
+        setIsDownloading(false);
     }
   };
 
@@ -138,10 +147,18 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
         return (
           <button 
             type="button"
-            className="gradient-border-button rounded-full px-4 py-2.5 text-base font-medium text-white relative left-6"
-            onClick={handleDownloadCertificate} // Attach download handler
+            className="gradient-border-button rounded-full px-4 py-2.5 text-base font-medium text-white relative left-6 flex items-center gap-2"
+            onClick={handleDownloadCertificate}
+            disabled={isDownloading}
           >
-            Approved
+            {isDownloading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Wait...
+              </>
+            ) : (
+              "Approved"
+            )}
           </button>
         );
     } else if (isCancelled) {
@@ -270,18 +287,25 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
       {isApproved && !isExpired ? (
         <button 
             type="button"
-            className="mt-3 flex items-center gap-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors relative left-12"
-            onClick={handleDownloadCertificate} // Attach download handler here too
+            className="mt-3 flex items-center gap-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors relative left-12 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handleDownloadCertificate} 
+            disabled={isDownloading}
         >
-          <div className="relative h-6 w-6 shrink-0">
-            <Image
-              src="/certificate.png"
-              alt="Certificate"
-              fill
-              className="object-contain"
-            />
-          </div>
-          <span className="text-sm font-medium">Download Certificate</span>
+          {isDownloading ? (
+            <Loader2 className="h-6 w-6 shrink-0 animate-spin" />
+          ) : (
+            <div className="relative h-6 w-6 shrink-0">
+                <Image
+                src="/certificate.png"
+                alt="Certificate"
+                fill
+                className="object-contain"
+                />
+            </div>
+          )}
+          <span className="text-sm font-medium">
+            {isDownloading ? "Preparing..." : "Download Certificate"}
+          </span>
         </button>
       ) : (
         getStatusLabel()
