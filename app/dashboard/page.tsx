@@ -139,6 +139,20 @@ function DashboardContent() {
     setCurrentPaymentIndex((prev) => (prev - 1 + pendingPaymentApps.length) % pendingPaymentApps.length);
   };
 
+  // State for Progress Circular Carousel
+  const [currentProgressIndex, setCurrentProgressIndex] = useState(0);
+  const progressApplications = [...applications]
+    .filter(app => ["draft", "submitted", "pending_payment", "in_review", "approved"].includes(app.status))
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+
+  const nextProgress = () => {
+    setCurrentProgressIndex((prev) => (prev + 1) % progressApplications.length);
+  };
+
+  const prevProgress = () => {
+    setCurrentProgressIndex((prev) => (prev - 1 + progressApplications.length) % progressApplications.length);
+  };
+
   if (loading && applications.length === 0) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -169,6 +183,11 @@ function DashboardContent() {
   // Show active and approved applications in the main list
   const activeAppsList = visibleApplications.filter(app => ["draft", "submitted", "pending_payment", "in_review", "approved"].includes(app.status));
 
+  // Determine if we should show the "New Application" button
+  // Rule: If applicant has applied for all 3 types (Building, Electrical, Plumbing), hide the button.
+  // Note: Civil is usually part of Building in this system.
+  const uniqueTypesApplied = new Set(visibleApplications.map(app => app.certificate_type)).size;
+  const canApplyMore = uniqueTypesApplied < 3; // Building, Electrical, Plumbing
 
   return (
     <div className="flex min-h-screen bg-white dark:bg-gray-900 relative">
@@ -196,18 +215,20 @@ function DashboardContent() {
                 className="space-y-6 sm:space-y-8"
               >
                 {/* Action Bar */}
-                <div className="flex justify-end mb-4">
-                    <Button 
-                        onClick={() => setIsNewAppModalOpen(true)}
-                        className="bg-[#033783] hover:bg-[#022555] text-white flex items-center gap-2"
-                    >
-                        <Plus className="h-4 w-4" />
-                        New Application
-                    </Button>
-                </div>
+                {canApplyMore && (
+                    <div className="flex justify-end mb-4">
+                        <Button 
+                            onClick={() => setIsNewAppModalOpen(true)}
+                            className="bg-[#033783] hover:bg-[#022555] text-white flex items-center gap-2"
+                        >
+                            <Plus className="h-4 w-4" />
+                            New Application
+                        </Button>
+                    </div>
+                )}
 
-                {/* Stats Cards - Responsive */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Stats Cards */}
+                <div className="grid gap-4 md:grid-cols-3 scale-[0.8] md:scale-[0.8] lg:scale-[0.95]">
                   <StatCard
                     label="Applications"
                     value={totalApplications.toString()}
@@ -259,47 +280,94 @@ function DashboardContent() {
 
                 {/* Bottom Section - Responsive Stacking */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-20">
-                  {/* Application Process Status */}
-                  <div className="rounded-lg border bg-white p-6 dark:bg-gray-950 shadow-sm h-full flex flex-col items-center justify-center">
+                  {/* Sliding Application Process Status */}
+                  <div className="rounded-lg border bg-white p-6 dark:bg-gray-950 shadow-sm h-full flex flex-col items-center justify-center relative group">
                     <h3 className="mb-4 text-center text-lg font-semibold">
                       Application Process Status
                     </h3>
-                    <div className="flex justify-center items-center h-[200px]">
-                      <svg className="h-40 w-40 sm:h-48 sm:w-48" viewBox="0 0 200 200">
-                        <circle
-                          cx="100"
-                          cy="100"
-                          r="80"
-                          fill="none"
-                          stroke="#E5E7EB"
-                          strokeWidth="20"
-                          className="dark:stroke-gray-700"
-                        />
-                        <circle
-                          cx="100"
-                          cy="100"
-                          r="80"
-                          fill="none"
-                          stroke="#4ADE80"
-                          strokeWidth="20"
-                          strokeDasharray="502"
-                          strokeDashoffset={502 * (1 - (getCompletionPercentage(applications[0]?.id || 0) / 100))}
-                          strokeLinecap="round"
-                          transform="rotate(-90 100 100)"
-                          className="transition-all duration-1000"
-                        />
-                        <text
-                          x="100"
-                          y="110"
-                          textAnchor="middle"
-                          fontSize="36"
-                          fontWeight="bold"
-                          className="fill-gray-900 dark:fill-gray-100"
-                        >
-                          {getCompletionPercentage(applications[0]?.id || 0)}%
-                        </text>
-                      </svg>
-                    </div>
+                    
+                    {progressApplications.length > 0 ? (
+                        <div className="w-full flex flex-col items-center">
+                            <AnimatePresence mode="wait">
+                                <motion.div 
+                                    key={progressApplications[currentProgressIndex]?.id}
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.9 }}
+                                    className="flex flex-col items-center"
+                                >
+                                    <div className="flex justify-center items-center h-[200px] relative">
+                                        <svg className="h-40 w-40 sm:h-48 sm:w-48" viewBox="0 0 200 200">
+                                            <circle
+                                            cx="100"
+                                            cy="100"
+                                            r="80"
+                                            fill="none"
+                                            stroke="#E5E7EB"
+                                            strokeWidth="20"
+                                            className="dark:stroke-gray-700"
+                                            />
+                                            <circle
+                                            cx="100"
+                                            cy="100"
+                                            r="80"
+                                            fill="none"
+                                            stroke="#4ADE80"
+                                            strokeWidth="20"
+                                            strokeDasharray="502"
+                                            strokeDashoffset={502 * (1 - (getCompletionPercentage(progressApplications[currentProgressIndex]?.id) / 100))}
+                                            strokeLinecap="round"
+                                            transform="rotate(-90 100 100)"
+                                            className="transition-all duration-1000"
+                                            />
+                                            <text
+                                            x="100"
+                                            y="110"
+                                            textAnchor="middle"
+                                            fontSize="36"
+                                            fontWeight="bold"
+                                            className="fill-gray-900 dark:fill-gray-100"
+                                            >
+                                            {getCompletionPercentage(progressApplications[currentProgressIndex]?.id)}%
+                                            </text>
+                                        </svg>
+                                    </div>
+                                    <div className="mt-2 text-center">
+                                        <p className="text-sm font-bold text-[#033783] dark:text-blue-400 capitalize">
+                                            {progressApplications[currentProgressIndex]?.certificate_type.replace("-", " ")}
+                                        </p>
+                                        <p className="text-[10px] text-gray-400 uppercase tracking-widest">
+                                            Application #{progressApplications[currentProgressIndex]?.id}
+                                        </p>
+                                    </div>
+                                </motion.div>
+                            </AnimatePresence>
+
+                            {/* Controls for Multiple Progress Circles */}
+                            {progressApplications.length > 1 && (
+                                <div className="flex items-center gap-4 mt-6">
+                                    <Button variant="ghost" size="icon" onClick={prevProgress} className="h-8 w-8 rounded-full">
+                                        <ChevronLeft className="h-4 w-4" />
+                                    </Button>
+                                    <div className="flex gap-1">
+                                        {progressApplications.map((_, idx) => (
+                                            <div 
+                                                key={idx} 
+                                                className={`h-1 rounded-full transition-all ${idx === currentProgressIndex ? 'w-4 bg-[#033783]' : 'w-1 bg-gray-300'}`}
+                                            />
+                                        ))}
+                                    </div>
+                                    <Button variant="ghost" size="icon" onClick={nextProgress} className="h-8 w-8 rounded-full">
+                                        <ChevronRight className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="h-[200px] flex items-center justify-center text-gray-400">
+                            No active progress
+                        </div>
+                    )}
                   </div>
 
                   {/* Enhanced Pending Payment Card (Dynamic & Responsive) */}

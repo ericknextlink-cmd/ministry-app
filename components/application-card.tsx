@@ -16,7 +16,9 @@ export interface ApplicationType {
   description?: string;
   status: "draft" | "submitted" | "pending_payment" | "in_review" | "approved" | "rejected" | "suspended" | "cancelled";
   current_step: number;
-  expiry_date?: string; // Also added expiry_date
+  expiry_date?: string;
+  company_name?: string;
+  user_email?: string;
   created_at: string;
 }
 
@@ -76,19 +78,22 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
         toast.error("This certificate has been suspended. Please contact the ministry.");
         return;
     }
-    console.log("Download clicked for app:", application.id);
     if (!userToken) {
         toast.error("Not authenticated.");
         return;
     }
     try {
-        console.log("Calling api.download...");
+        // Construct requested filename: Name of Company_Certificate type_Class_Certificate Number.pdf
+        const company = (application.company_name || "Company").replace(/\s+/g, "_");
+        const type = application.certificate_type.replace(/\s+/g, "_");
+        const certClass = (application.certificate_class || "N/A").replace(/\s+/g, "_");
+        const filename = `${company}_${type}_${certClass}_${application.id}.pdf`;
+
         await api.download(
             `/applications/${application.id}/certificate`,
-            `Certificate_${application.id}.pdf`, 
+            filename, 
             userToken
         );
-        console.log("Download success");
         toast.success("Certificate download initiated!");
     } catch (error: any) {
         console.error("Download failed:", error);
@@ -159,8 +164,18 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
             Rejected
           </button>
         );
+    } else if (application.status === "submitted" || application.status === "in_review") {
+        return (
+          <button 
+            type="button"
+            className="gradient-border-button rounded-full px-4 py-2.5 text-base font-medium text-white relative left-6"
+            style={{ opacity: 0.8, cursor: "default" }}
+          >
+            Pending Approval
+          </button>
+        );
     } else {
-        // Both draft/in-progress/submitted show "Continue"
+        // Non-final, non-submitted states (draft, pending_payment) show "Continue"
         return (
           <button
             type="button"

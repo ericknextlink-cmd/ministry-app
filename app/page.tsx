@@ -137,7 +137,7 @@ export default function Home() {
                   Official Government Portal
                 </div>
                 <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-gray-900 dark:text-white leading-[1.1]">
-                  Welcome to the <span className="text-[#033783] dark:text-blue-400 text-nowrap">MWHWR</span> Classification Portal
+                  Welcome to the <span className="text-[#033783] dark:text-blue-400 text-nowrap">MWHWR</span> Certificate of Classification Application Portal
                 </h2>
                 <p className="text-xl text-gray-600 dark:text-gray-400 max-w-lg">
                   Simplifying certification for contractors in Ghana. Apply, renew, and verify your status online.

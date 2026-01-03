@@ -32,6 +32,7 @@ interface ApplicationContextType {
   getLatestCompanyInfo: () => Promise<any>; // New function
   addDirector: (applicationId: number, data: any) => Promise<void>;
   getDirectors: (applicationId: number) => Promise<any[]>;
+  getLatestDirectors: () => Promise<any[]>;
   removeDirector: (directorId: number) => Promise<void>;
   uploadDocument: (applicationId: number, documentType: string, file: File) => Promise<void>;
   getDocuments: (applicationId: number) => Promise<any[]>;
@@ -255,6 +256,16 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
       }
   }, [userToken]);
 
+  const getLatestDirectors = useCallback(async () => {
+      if (!userToken) return [];
+      try {
+          return await directorsApi.getLatest<any[]>(userToken);
+      } catch (err) {
+          console.log("No latest directors found.");
+          return [];
+      }
+  }, [userToken]);
+
   const addDirector = useCallback(async (applicationId: number, data: any) => {
       if (!userToken) throw new Error("Not authenticated.");
       setLoading(true);
@@ -397,6 +408,7 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
         getLatestCompanyInfo,
         addDirector, 
         getDirectors, 
+        getLatestDirectors,
         removeDirector,
         uploadDocument,
         getDocuments,

@@ -25,28 +25,43 @@ interface Director {
 }
 
 export function DirectorsForm({ application, onSuccess }: DirectorsFormProps) {
-  const { addDirector, getDirectors, removeDirector, updateApplication } = useApplication();
-  const [directors, setDirectors] = useState<Director[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [adding, setAdding] = useState(false);
-
-  // New Director Form State
-  const [newDirector, setNewDirector] = useState({
-    name: "",
-    position: "",
-    nationality: "Ghanaian",
-    phone_number: "",
-    email: "",
-  });
-
-  // Load existing directors
-  useEffect(() => {
-    loadDirectors();
-  }, [application.id]);
-
+  const { addDirector, getDirectors, getLatestDirectors, removeDirector, updateApplication } = useApplication();
+// ...
   const loadDirectors = async () => {
-    const data = await getDirectors(application.id);
-    setDirectors(data);
+    setLoading(true);
+    try {
+        const data = await getDirectors(application.id);
+        
+        // If current app is empty, check for latest from previous apps
+        if (data.length === 0) {
+            const latestData = await getLatestDirectors();
+            if (latestData && latestData.length > 0) {
+                // Auto-import them
+                for (const d of latestData) {
+                    await addDirector(application.id, {
+                        name: d.name,
+                        position: d.position,
+                        nationality: d.nationality,
+                        phone_number: d.phone_number,
+                        email: d.email,
+                        application_id: application.id
+                    });
+                }
+                toast.info("Directors information from your previous application has been auto-filled.");
+                // Refresh local list
+                const refreshed = await getDirectors(application.id);
+                setDirectors(refreshed);
+            } else {
+                setDirectors([]);
+            }
+        } else {
+            setDirectors(data);
+        }
+    } catch (err) {
+        console.error(err);
+    } finally {
+        setLoading(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
