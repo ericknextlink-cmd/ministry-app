@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useApplication } from "@/contexts/ApplicationContext";
 import { toast } from "sonner";
 import { ApplicationType } from "./application-card";
-import { Trash2, UserPlus } from "lucide-react";
+import { Trash2, UserPlus, Loader2 } from "lucide-react";
 
 interface DirectorsFormProps {
   application: ApplicationType;
@@ -26,7 +26,24 @@ interface Director {
 
 export function DirectorsForm({ application, onSuccess }: DirectorsFormProps) {
   const { addDirector, getDirectors, getLatestDirectors, removeDirector, updateApplication } = useApplication();
-// ...
+  const [directors, setDirectors] = useState<Director[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [adding, setAdding] = useState(false);
+
+  // New Director Form State
+  const [newDirector, setNewDirector] = useState({
+    name: "",
+    position: "",
+    nationality: "Ghanaian",
+    phone_number: "",
+    email: "",
+  });
+
+  // Load existing directors
+  useEffect(() => {
+    loadDirectors();
+  }, [application.id]);
+
   const loadDirectors = async () => {
     setLoading(true);
     try {
@@ -162,7 +179,7 @@ export function DirectorsForm({ application, onSuccess }: DirectorsFormProps) {
               ))
           ) : (
               <div className="text-center p-6 border-2 border-dashed rounded-lg text-gray-400">
-                  No directors added yet.
+                  {loading ? "Loading directors..." : "No directors added yet."}
               </div>
           )}
       </div>
@@ -231,7 +248,12 @@ export function DirectorsForm({ application, onSuccess }: DirectorsFormProps) {
           className="bg-[#033783] text-white hover:bg-[#022555] px-8"
           disabled={loading || directors.length === 0}
         >
-          {loading ? "Saving..." : "Save & Continue"}
+          {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+          ) : "Save & Continue"}
         </Button>
       </div>
     </motion.div>
