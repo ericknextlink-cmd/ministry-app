@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useApplication } from "@/contexts/ApplicationContext";
 import { DirectorsForm } from "@/components/directors-form";
 import { DashboardHeader } from "@/components/dashboard-header";
@@ -9,6 +9,9 @@ import { DashboardSidebar } from "@/components/dashboard-sidebar";
 
 export default function DirectorsInfoPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const idParam = searchParams.get("id");
+
   const { isAuthenticated, applications, fetchApplications, loading } = useApplication();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -22,11 +25,15 @@ export default function DirectorsInfoPage() {
   }, [isAuthenticated, router, fetchApplications]);
 
   // Find active application
-  const activeApplication = [...applications]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .find(app => 
-      ["draft", "pending_payment", "submitted", "in_review", "suspended"].includes(app.status)
-    );
+  // If ID param is present, find THAT specific app.
+  // Otherwise, fallback to the most recent active one.
+  const activeApplication = idParam 
+    ? applications.find(app => app.id === parseInt(idParam))
+    : [...applications]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .find(app => 
+          ["draft", "pending_payment", "submitted", "in_review", "suspended"].includes(app.status)
+        );
 
   return (
     <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-900">
@@ -47,7 +54,7 @@ export default function DirectorsInfoPage() {
              ) : activeApplication ? (
                  <DirectorsForm 
                     application={activeApplication} 
-                    onSuccess={() => router.push("/dashboard/documents")} // Next step
+                    onSuccess={() => router.push(`/dashboard/documents?id=${activeApplication.id}`)} // Next step with ID
                  />
              ) : (
                  <div className="text-center p-12 bg-white rounded-lg shadow dark:bg-gray-800">

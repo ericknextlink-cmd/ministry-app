@@ -229,7 +229,7 @@ function DashboardContent() {
                 )}
 
                 {/* Stats Cards */}
-                <div className="grid gap-4 md:grid-cols-3 scale-[0.8] md:scale-[0.8] lg:scale-[0.95]">
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
                   <StatCard
                     label="Applications"
                     value={totalApplications.toString()}
@@ -270,17 +270,19 @@ function DashboardContent() {
 
                 {/* Dynamic Progress Trackers */}
                 {activeApplications.length > 0 && (
-                    <div className="mt-12 mb-8 space-y-8 overflow-x-auto">
+                    <div className="mt-12 mb-8 space-y-8">
                         {activeApplications.map(app => (
-                            <div key={app.id} className="p-6 bg-white dark:bg-gray-950 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm min-w-[600px] md:min-w-0">
-                                <ProgressTracker application={app} />
+                            <div key={app.id} className="p-6 bg-white dark:bg-gray-950 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm w-full overflow-x-auto">
+                                <div className="min-w-[600px]">
+                                    <ProgressTracker application={app} />
+                                </div>
                             </div>
                         ))}
                     </div>
                 )}
 
                 {/* Bottom Section - Responsive Stacking */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-20">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-12">
                   {/* Sliding Application Process Status */}
                   <div className="rounded-lg border bg-white p-6 dark:bg-gray-950 shadow-sm h-full flex flex-col items-center justify-center relative group">
                     <h3 className="mb-4 text-center text-lg font-semibold">

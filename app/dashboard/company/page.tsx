@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useApplication } from "@/contexts/ApplicationContext";
 import { CompanyInfoForm } from "@/components/company-info-form";
 import { DashboardHeader } from "@/components/dashboard-header";
@@ -9,6 +9,9 @@ import { DashboardSidebar } from "@/components/dashboard-sidebar";
 
 export default function CompanyInfoPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const idParam = searchParams.get("id");
+  
   const { isAuthenticated, applications, fetchApplications, loading } = useApplication();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -23,14 +26,16 @@ export default function CompanyInfoPage() {
 
   console.log("CompanyInfoPage Debug:", { loading, applicationsCount: applications.length, apps: applications });
 
-  // Find the active application that needs company info
-  // Logic: Most recent one that is not 'draft' (passed step 1 & 2)
-  // Sort by created_at desc to get latest first
-  const activeApplication = [...applications]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .find(app => 
-      ["draft", "pending_payment", "submitted", "in_review", "suspended"].includes(app.status)
-    );
+  // Find the active application
+  // If ID param is present, find THAT specific app.
+  // Otherwise, fallback to the most recent active one.
+  const activeApplication = idParam 
+    ? applications.find(app => app.id === parseInt(idParam))
+    : [...applications]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .find(app => 
+          ["draft", "pending_payment", "submitted", "in_review", "suspended"].includes(app.status)
+        );
 
   return (
     <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-900">
@@ -51,7 +56,7 @@ export default function CompanyInfoPage() {
              ) : activeApplication ? (
                  <CompanyInfoForm 
                     application={activeApplication} 
-                    onSuccess={() => router.push("/dashboard/directors")} // Next step
+                    onSuccess={() => router.push(`/dashboard/directors?id=${activeApplication.id}`)} // Next step with ID
                  />
              ) : (
                  <div className="text-center p-12 bg-white rounded-lg shadow dark:bg-gray-800">
