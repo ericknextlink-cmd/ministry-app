@@ -21,6 +21,7 @@ export interface ApplicationType {
   company_name?: string;
   user_email?: string;
   created_at: string;
+  certificate_number?: string;
 }
 
 interface ApplicationCardProps {
@@ -147,18 +148,10 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
         return (
           <button 
             type="button"
-            className="gradient-border-button rounded-full px-4 py-2.5 text-base font-medium text-white relative left-6 flex items-center gap-2"
-            onClick={handleDownloadCertificate}
-            disabled={isDownloading}
+            className="gradient-border-button rounded-full px-4 py-2.5 text-base font-medium text-white relative left-6"
+            onClick={onClick}
           >
-            {isDownloading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Wait...
-              </>
-            ) : (
-              "Approved"
-            )}
+            Approved
           </button>
         );
     } else if (isCancelled) {

@@ -19,7 +19,7 @@ interface ApplicationContextType {
   userToken: string | null;
   user: User | null; // Added user
   login: (email: string, password: string) => Promise<User | null>; // Return User
-  register: (data: { email: string; password: string; companyName?: string; phone?: string }) => Promise<void>;
+  register: (data: { email: string; password: string; companyName?: string; phone?: string; companyRegistrationNumber?: string; companyType?: string }) => Promise<void>;
   logout: () => void;
   applications: Application[];
   fetchApplications: () => Promise<void>;
@@ -144,7 +144,7 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
     }
   }, [userToken, fetchApplications]);
 
-  const register = useCallback(async (data: { email: string; password: string; companyName?: string; phone?: string }) => {
+  const register = useCallback(async (data: { email: string; password: string; companyName?: string; phone?: string; companyRegistrationNumber?: string; companyType?: string }) => {
     setLoading(true);
     setError(null);
     try {

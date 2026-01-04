@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useApplication } from "@/contexts/ApplicationContext";
 import { adminApi } from "@/lib/api";
 import { toast } from "sonner";
+import { formatApplicationId } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, XCircle, Building, Users, FileText, Mail, Phone, AlertCircle, RefreshCw, Clock } from "lucide-react";
@@ -218,7 +219,7 @@ export default function AdminApplicationDetailPage({ params }: { params: Promise
       </div>
 
       <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-4">
-          Application #{applicationDetails.id} 
+          {formatApplicationId(applicationDetails.id, applicationDetails.created_at)} 
           <Badge className={`${getStatusBadgeColor(applicationDetails.status)} text-white capitalize`}>
               {applicationDetails.status.replace("_", " ")}
           </Badge>

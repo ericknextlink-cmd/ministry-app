@@ -126,7 +126,7 @@ export const authApi = {
     return response.json();
   },
 
-  register: async (data: { email: string; password: string; companyName?: string; phone?: string }) => {
+  register: async (data: { email: string; password: string; companyName?: string; phone?: string; companyRegistrationNumber?: string; companyType?: string }) => {
     const response = await fetch(`${API_BASE_URL}/users/`, {
         method: "POST",
         headers: {
@@ -135,6 +135,10 @@ export const authApi = {
         body: JSON.stringify({
             email: data.email,
             password: data.password,
+            full_name: data.companyName, // Mapping company name to full_name as per usual convention
+            phone_number: data.phone,
+            company_registration_number: data.companyRegistrationNumber,
+            company_type: data.companyType,
             is_active: true,
             is_superuser: false
         }),

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { CreditCard, ShieldCheck, Loader2, AlertCircle } from "lucide-react";
 import { applicationsApi } from "@/lib/api";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatApplicationId } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 function PaymentContent() {
@@ -184,7 +184,7 @@ function PaymentContent() {
                                           {otherPendingApps.map(app => (
                                               <div key={app.id} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-900/50 rounded">
                                                   <div>
-                                                      <p className="font-medium">Application #{app.id}</p>
+                                                      <p className="font-medium">{formatApplicationId(app.id, app.created_at)}</p>
                                                       <p className="text-xs text-gray-500">{app.certificate_type}</p>
                                                   </div>
                                                   <span>{formatCurrency(getFeeAmount(app.certificate_class))}</span>

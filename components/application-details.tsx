@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,7 @@ import { ApplicationType } from "./application-card"; // Import shared type
 import { useApplication } from "@/contexts/ApplicationContext"; // Use context for updates
 import { toast } from "sonner";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { api } from "@/lib/api";
 
 interface ApplicationDetailsProps {
   application: ApplicationType;
@@ -66,7 +67,7 @@ export function ApplicationDetails({
   onSubmitApplication,
 }: ApplicationDetailsProps) {
   const router = useRouter();
-  const { updateApplication, cancelApplication } = useApplication();
+  const { updateApplication, cancelApplication, renewApplication, userToken } = useApplication();
   
   // Get data for this certificate type
   const certData = certificateData[application.certificate_type as keyof typeof certificateData] || certificateData["building"];
@@ -76,7 +77,9 @@ export function ApplicationDetails({
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isRenewing, setIsRenewing] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Update selected class if application changes
   useEffect(() => {
@@ -125,6 +128,48 @@ export function ApplicationDetails({
       }
   };
 
+  const handleDownloadCertificate = async () => {
+    if (isDownloading) return;
+    if (!userToken) {
+        toast.error("Not authenticated.");
+        return;
+    }
+
+    setIsDownloading(true);
+    try {
+        const company = (application.company_name || "Company").replace(/\s+/g, "_");
+        const type = application.certificate_type.replace(/\s+/g, "_");
+        const certClass = (application.certificate_class || "N/A").replace(/\s+/g, "_");
+        const filename = `${company}_${type}_${certClass}_${application.id}.pdf`;
+
+        toast.info("Preparing download...");
+        await api.download(
+            `/applications/${application.id}/certificate`,
+            filename, 
+            userToken
+        );
+        toast.success("Certificate download initiated!");
+    } catch (error: any) {
+        console.error("Download failed:", error);
+        toast.error(error.message || "Failed to download certificate.");
+    } finally {
+        setIsDownloading(false);
+    }
+  };
+
+  const handleRenew = async () => {
+      setIsRenewing(true);
+      try {
+          await renewApplication(application.id);
+          toast.success("Renewal started! You can now continue the application.");
+          // Ideally trigger a refresh or callback here, for now relying on context update
+      } catch (error: any) {
+          toast.error(error.message || "Failed to start renewal.");
+      } finally {
+          setIsRenewing(false);
+      }
+  };
+
   const selectedClassData = certData.classes.find(c => c.id === selectedClass) || certData.classes[0];
 
   // Helper for display assets
@@ -144,6 +189,9 @@ export function ApplicationDetails({
   
   const { name, shape } = getDisplayData(application.certificate_type);
   const shapeLarge = shape.replace(".svg", "-large.svg");
+
+  const isExpired = application.expiry_date ? new Date(application.expiry_date) < new Date() : false;
+  const isSuspended = application.status === "suspended";
 
   return (
     <motion.div
@@ -228,25 +276,63 @@ export function ApplicationDetails({
       <div className="rounded-lg border bg-white p-6 dark:bg-gray-950">
         <h3 className="mb-4 text-xl font-bold">Certificate Information:</h3>
         <div className="space-y-3 text-gray-700 dark:text-gray-300">
-          <p>
-            <span className="font-medium">Financial Class:</span> {selectedClassData.financialClass}
-          </p>
-          <p>
-            <span className="font-medium">Class:</span> {selectedClassData.label}
-          </p>
-          <p>
-            <span className="font-medium">Category:</span> {certData.category}
-          </p>
-          <p>
-            <span className="font-medium">New registration:</span> {selectedClassData.registration}
-          </p>
-          <p>
-            <span className="font-medium">Renewal:</span> {selectedClassData.renewal}
-          </p>
-          {selectedClassData.requiresLLC && (
-            <p className="pt-2 italic text-blue-600 dark:text-blue-400">
-              * Limited Liability Company registration required
-            </p>
+          {application.status === "approved" || isExpired || isSuspended ? (
+            <>
+              <p>
+                <span className="font-medium">Certificate Number:</span>{" "}
+                {application.certificate_number || `MWHWR-CC-25-${application.certificate_class || "X"}-${application.id.toString().padStart(3, "0")}`}
+              </p>
+              <p>
+                <span className="font-medium">Financial Class:</span> {selectedClassData.financialClass}
+              </p>
+              <p>
+                <span className="font-medium">Class:</span> {selectedClassData.label}
+              </p>
+              <p>
+                <span className="font-medium">Category:</span> {certData.category}
+              </p>
+              <p>
+                <span className="font-medium">Expiry Date:</span>{" "}
+                {application.expiry_date ? new Date(application.expiry_date).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric"
+                }) : "N/A"}
+              </p>
+              <p className="flex items-center gap-2">
+                <span className="font-medium">Certificate Status:</span>{" "}
+                {isSuspended ? (
+                  <span className="font-bold text-orange-600">Suspended</span>
+                ) : isExpired ? (
+                  <span className="font-bold text-red-600">Expired</span>
+                ) : (
+                  <span className="font-bold text-green-600">Active</span>
+                )}
+              </p>
+            </>
+          ) : (
+            <>
+              <p>
+                <span className="font-medium">Financial Class:</span> {selectedClassData.financialClass}
+              </p>
+              <p>
+                <span className="font-medium">Class:</span> {selectedClassData.label}
+              </p>
+              <p>
+                <span className="font-medium">Category:</span> {certData.category}
+              </p>
+              <p>
+                <span className="font-medium">New registration:</span> {selectedClassData.registration}
+              </p>
+              <p>
+                <span className="font-medium">Renewal:</span> {selectedClassData.renewal}
+              </p>
+              {selectedClassData.requiresLLC && (
+                <p className="pt-2 italic text-blue-600 dark:text-blue-400">
+                  * Limited Liability Company registration required
+                </p>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -283,8 +369,79 @@ export function ApplicationDetails({
         </div>
       )}
       
-      {/* If paid already, show Continue to Company Info */}
-      {application.current_step >= 4 && (
+      {/* Action Buttons based on Status */}
+      {(application.status === "approved" || isSuspended || isExpired) && (
+          <div className="flex justify-end gap-4">
+              {/* Suspended State */}
+              {isSuspended && (
+                  <>
+                      <div className="flex-1 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/30 rounded-lg flex items-center gap-3 text-orange-700 dark:text-orange-400">
+                          <AlertCircle className="h-5 w-5 text-orange-600" />
+                          <p className="text-sm font-medium">Your certificate has been suspended. Please contact the ministry for assistance.</p>
+                      </div>
+                      <a
+                        href="mailto:info@mwh.gov.gh"
+                        className="inline-flex h-11 items-center justify-center rounded-full bg-orange-600 px-8 text-white hover:bg-orange-700 transition-colors"
+                      >
+                        Contact Ministry
+                      </a>
+                  </>
+              )}
+
+              {/* Expired State */}
+              {!isSuspended && isExpired && (
+                  <>
+                      <div className="flex-1 p-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 rounded-lg flex items-center gap-3 text-red-700 dark:text-red-400">
+                          <AlertCircle className="h-5 w-5 text-red-600" />
+                          <p className="text-sm font-medium">Your certificate has expired. Please renew to continue operations.</p>
+                      </div>
+                      <Button
+                        size="lg"
+                        onClick={handleRenew}
+                        disabled={isRenewing}
+                        className="rounded-full bg-red-600 px-12 text-white hover:bg-red-700 flex items-center gap-2"
+                      >
+                         {isRenewing ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Starting Renewal...
+                            </>
+                          ) : (
+                            "Renew Certificate"
+                          )}
+                      </Button>
+                  </>
+              )}
+
+              {/* Active (Approved) State */}
+              {!isSuspended && !isExpired && (
+                  <>
+                      <div className="flex-1 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 rounded-lg flex items-center gap-3 text-blue-700 dark:text-blue-400">
+                          <Image src="/circle-check.png" alt="Approved" width={20} height={20} />
+                          <p className="text-sm font-medium">Application Approved. You can now download your certificate.</p>
+                      </div>
+                      <Button
+                        size="lg"
+                        onClick={handleDownloadCertificate}
+                        disabled={isDownloading}
+                        className="rounded-full bg-[#033783] px-12 text-white hover:bg-[#022555] flex items-center gap-2"
+                      >
+                         {isDownloading ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Wait...
+                            </>
+                          ) : (
+                            "Download Certificate"
+                          )}
+                      </Button>
+                  </>
+              )}
+          </div>
+      )}
+
+      {/* If paid already but NOT approved/suspended/expired, show Continue to Company Info */}
+      {application.current_step >= 4 && application.status !== "approved" && !isSuspended && !isExpired && (
           <div className="flex justify-end gap-4">
               <div className="flex-1 p-4 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900/30 rounded-lg flex items-center gap-3 text-green-700 dark:text-green-400">
                   <Image src="/circle-check.png" alt="Paid" width={20} height={20} />

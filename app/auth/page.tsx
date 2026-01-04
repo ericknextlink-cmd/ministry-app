@@ -8,6 +8,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useApplication } from "@/contexts/ApplicationContext"; // Import useApplication
@@ -26,6 +33,8 @@ export default function AuthPage() {
   
   // Register State
   const [regCompanyName, setRegCompanyName] = useState("");
+  const [regCompanyRegNumber, setRegCompanyRegNumber] = useState("");
+  const [regCompanyType, setRegCompanyType] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regConfirmEmail, setRegConfirmEmail] = useState("");
   const [regPhone, setRegPhone] = useState("");
@@ -92,7 +101,9 @@ export default function AuthPage() {
           email: regEmail, 
           password: regPassword,
           companyName: regCompanyName,
-          phone: regPhone
+          phone: regPhone,
+          companyRegistrationNumber: regCompanyRegNumber,
+          companyType: regCompanyType
       });
       toast.success("Registration successful!");
       // Context will auto-login and useEffect will redirect
@@ -234,6 +245,32 @@ export default function AuthPage() {
                           onChange={(e) => setRegCompanyName(e.target.value)}
                           required
                         />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Input
+                          id="companyRegNumber"
+                          placeholder="Company Registration Number"
+                          className="h-12"
+                          value={regCompanyRegNumber}
+                          onChange={(e) => setRegCompanyRegNumber(e.target.value)}
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Select onValueChange={setRegCompanyType} value={regCompanyType} required>
+                            <SelectTrigger className="h-12 w-full text-muted-foreground has-[span]:text-foreground">
+                                <SelectValue placeholder="Select Company Type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Sole Proprietorship">Sole Proprietorship</SelectItem>
+                                <SelectItem value="Limited Liability">Limited Liability</SelectItem>
+                                <SelectItem value="Partnership">Partnership</SelectItem>
+                                <SelectItem value="External Company">External Company</SelectItem>
+                                <SelectItem value="Other">Other</SelectItem>
+                            </SelectContent>
+                        </Select>
                       </div>
 
                       <div className="space-y-2">

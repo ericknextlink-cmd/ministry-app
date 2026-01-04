@@ -154,7 +154,7 @@ function VerifyPageContent() {
     setVerificationResult(null);
     
     // Clean ID
-    const certId = certNumber.replace(/\D/g, ''); 
+    const certId = certNumber.trim(); 
 
     if (!certId) {
         toast.error("Invalid Input", { description: "Please enter a valid certificate number." });

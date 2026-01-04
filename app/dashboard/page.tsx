@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { formatApplicationId } from "@/lib/utils";
 
 import { ProgressTracker } from "@/components/progress-tracker";
 
@@ -181,7 +182,7 @@ function DashboardContent() {
   const approvedApplications = visibleApplications.filter(app => app.status === "approved").length;
 
   // Show active and approved applications in the main list
-  const activeAppsList = visibleApplications.filter(app => ["draft", "submitted", "pending_payment", "in_review", "approved"].includes(app.status));
+  const activeAppsList = visibleApplications.filter(app => ["draft", "submitted", "pending_payment", "in_review", "approved", "suspended"].includes(app.status));
 
   // Determine if we should show the "New Application" button
   // Rule: If applicant has applied for all 3 types (Building, Electrical, Plumbing), hide the button.
@@ -246,7 +247,7 @@ function DashboardContent() {
                 {/* Application Cards - Active */}
                 {activeAppsList.length > 0 && (
                     <div className="space-y-4">
-                        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Active Applications</h2>
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Applications</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {activeAppsList.map((app) => (
                                 <div key={app.id} className="w-full">
@@ -337,7 +338,7 @@ function DashboardContent() {
                                             {progressApplications[currentProgressIndex]?.certificate_type.replace("-", " ")}
                                         </p>
                                         <p className="text-[10px] text-gray-400 uppercase tracking-widest">
-                                            Application #{progressApplications[currentProgressIndex]?.id}
+                                            {formatApplicationId(progressApplications[currentProgressIndex]?.id, progressApplications[currentProgressIndex]?.created_at)}
                                         </p>
                                     </div>
                                 </motion.div>
@@ -404,7 +405,7 @@ function DashboardContent() {
                                     </div>
                                     <div>
                                         <p className="text-xs text-blue-200 uppercase font-bold tracking-wider mb-1">Application ID</p>
-                                        <p className="text-base sm:text-lg font-mono truncate">#{pendingPaymentApps[currentPaymentIndex].id}</p>
+                                        <p className="text-base sm:text-lg font-mono truncate">{formatApplicationId(pendingPaymentApps[currentPaymentIndex].id, pendingPaymentApps[currentPaymentIndex].created_at)}</p>
                                     </div>
                                 </div>
                                 {pendingPaymentApps[currentPaymentIndex].certificate_class && (

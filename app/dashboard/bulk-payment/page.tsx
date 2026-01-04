@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { CreditCard, Loader2 } from "lucide-react";
-import { formatCurrency } from "@/lib/utils"; 
+import { formatCurrency, formatApplicationId } from "@/lib/utils"; 
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { DashboardHeader } from "@/components/dashboard-header";
 
@@ -160,9 +160,9 @@ export default function BulkPaymentPage() {
                                             onCheckedChange={() => toggleSelection(app.id)}
                                         />
                                         <div className="flex-1">
-                                            <h3 className="font-semibold capitalize text-gray-900 dark:text-gray-100">{app.certificate_type.replace('_', ' ')}</h3>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">Application #{app.id} • {app.certificate_class}</p>
-                                        </div>
+                        <p className="font-medium capitalize">{app.certificate_type.replace("-", " ")}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{formatApplicationId(app.id, app.created_at)} • {app.certificate_class}</p>
+                      </div>
                                         <div className="font-mono font-medium text-gray-900 dark:text-gray-100">
                                             {formatCurrency(getFee(app.certificate_class))}
                                         </div>
@@ -184,7 +184,7 @@ export default function BulkPaymentPage() {
                                     <div key={app.id} className="flex items-center justify-between p-4 border border-amber-200 dark:border-amber-900/30 bg-amber-50 dark:bg-amber-900/10 rounded-lg">
                                         <div>
                                             <h3 className="font-semibold capitalize text-gray-900 dark:text-gray-100">{app.certificate_type.replace('_', ' ')}</h3>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">Application #{app.id} • Class Not Selected</p>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">{formatApplicationId(app.id, app.created_at)} • Class Not Selected</p>
                                         </div>
                                         <Button 
                                             size="sm" 
