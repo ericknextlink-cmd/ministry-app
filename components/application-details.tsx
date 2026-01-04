@@ -37,11 +37,12 @@ const certificateData = {
       { id: "D3K3", label: "D3K3", registration: "¢600", renewal: "¢210", financialClass: "$75,000 - $200,000", requiresLLC: false },
     ],
   },
-  "civil": { // Reuse building data for civil for now
+  "civil": { // Reuse building data for civil for now as they share DK category
     category: "DK",
     classes: [
       { id: "D1K1", label: "D1K1", registration: "¢3500", renewal: "¢2010", financialClass: "Over $500,000", requiresLLC: true },
       { id: "D2K2", label: "D2K2", registration: "¢2500", renewal: "¢410", financialClass: "$200,000 - $500,000", requiresLLC: true },
+      { id: "D3K3", label: "D3K3", registration: "¢600", renewal: "¢210", financialClass: "$75,000 - $200,000", requiresLLC: false },
     ],
   },
   "electrical": {
@@ -168,6 +169,29 @@ export function ApplicationDetails({
       } finally {
           setIsRenewing(false);
       }
+  };
+
+  const handleContinueApplication = () => {
+      // Determine the correct path based on the current step
+      // Step 4: Company Info
+      // Step 5: Directors
+      // Step 6: Documents
+      // Step 7: Review
+      
+      const baseUrl = "/dashboard";
+      const params = `?id=${application.id}`;
+      
+      let path = "/company"; // Default to company info
+      
+      if (application.current_step === 5) {
+          path = "/directors";
+      } else if (application.current_step === 6) {
+          path = "/documents";
+      } else if (application.current_step >= 7) {
+          path = "/review";
+      }
+      
+      router.push(`${baseUrl}${path}${params}`);
   };
 
   const selectedClassData = certData.classes.find(c => c.id === selectedClass) || certData.classes[0];
@@ -449,7 +473,7 @@ export function ApplicationDetails({
               </div>
               <Button
                 size="lg"
-                onClick={() => router.push("/dashboard/company")}
+                onClick={handleContinueApplication}
                 className="rounded-full bg-[#033783] px-12 text-white hover:bg-[#022555]"
               >
                 Continue Application

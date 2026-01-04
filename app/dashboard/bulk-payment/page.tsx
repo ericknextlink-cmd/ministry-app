@@ -28,11 +28,15 @@ export default function BulkPaymentPage() {
 
   // Fee configuration
   const FEE_STRUCTURE: Record<string, number> = {
-    "Class 1": 2000,
-    "Class 2": 1500,
-    "Class 3": 1000,
-    "Class 4": 500,
-    "default": 500
+    "D1K1": 3500,
+    "D2K2": 2500,
+    "D3K3": 600,
+    "E1": 1500,
+    "E2": 1000,
+    "E3": 300,
+    "G1": 1000,
+    "G2": 400,
+    "default": 0
   };
 
   const getFee = (certClass?: string) => {

@@ -29,11 +29,15 @@ function PaymentContent() {
 
   // Fee configuration
   const FEE_STRUCTURE: Record<string, number> = {
-    "Class 1": 2000,
-    "Class 2": 1500,
-    "Class 3": 1000,
-    "Class 4": 500,
-    "default": 500
+    "D1K1": 3500,
+    "D2K2": 2500,
+    "D3K3": 600,
+    "E1": 1500,
+    "E2": 1000,
+    "E3": 300,
+    "G1": 1000,
+    "G2": 400,
+    "default": 0
   };
 
   const getFeeAmount = (certClass?: string) => {
@@ -176,7 +180,7 @@ function PaymentContent() {
                                       <div className="space-y-2">
                                           <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-900/50 rounded">
                                               <div>
-                                                  <p className="font-medium">Current Application (#{activeApplication.id})</p>
+                                                  <p className="font-medium">Current Application ({formatApplicationId(activeApplication.id, activeApplication.created_at)})</p>
                                                   <p className="text-xs text-gray-500">{activeApplication.certificate_type}</p>
                                               </div>
                                               <span>{formatCurrency(currentFee)}</span>
@@ -212,7 +216,7 @@ function PaymentContent() {
                                       </div>
                                       <div className="flex justify-between py-3 border-b border-gray-100 dark:border-gray-700">
                                           <span className="text-gray-500">Application ID</span>
-                                          <span className="font-mono text-sm">{activeApplication.id}</span>
+                                          <span className="font-mono text-sm">{formatApplicationId(activeApplication.id, activeApplication.created_at)}</span>
                                       </div>
                                       {otherPendingApps.length > 0 && (
                                           <div className="flex justify-end text-sm text-blue-600 hover:underline cursor-pointer" onClick={() => setPayMode("all")}>

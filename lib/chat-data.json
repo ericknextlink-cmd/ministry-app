@@ -6,21 +6,25 @@
       "response": "Hello! I'm Mavis, your Ministry Assistant. I can help you with information about Contractor Classification, Fees, and the Application Process. What would you like to know?"
     },
     {
-      "id": "fees_general",
-      "patterns": ["how much", "cost", "fee", "price", "payment"],
-      "response": "The certification fees depend on the Class (A, B, C) and Category (Electrical, Building, Plumbing). \n- **Class A/1 (Highest)**: ~¢3,500 - ¢5,000 \n- **Class B/2**: ~¢2,500 - ¢3,500 \n- **Class C/3**: ~¢500 - ¢1,000 \n\n Would you like to know the fee for a specific category?"
-    },
-    {
-      "id": "fees_electrical",
-      "patterns": ["electrical fee", "electrical cost", "price for electrical"],
-      "response": "**Electrical Works Fees:**\n- **Class E1**: ¢1,500\n- **Class E2**: ¢1,000\n- **Class E3**: ¢300\n\nRenewal fees are lower (¢50 - ¢410)."
-    },
-    {
-      "id": "fees_building",
-      "patterns": ["building fee", "construction cost", "civil works price"],
-      "response": "**General Building & Civil Works Fees:**\n- **Class D1K1**: ¢3,500\n- **Class D2K2**: ¢2,500\n- **Class D3K3**: ¢600\n\nRequires financial proof of over $500k for the highest class."
-    },
-    {
+          "id": "fees_general",
+          "patterns": ["how much", "cost", "fee", "price", "payment"],
+          "response": "The certification fees depend on the Class and Category (DK, E, G). \n- **DK (Building/Civil)**: ¢600 - ¢3,500 \n- **E (Electrical)**: ¢300 - ¢1,500 \n- **G (Plumbing)**: ¢400 - ¢1,000 \n\n Would you like to know the fee for a specific category?"
+        },
+        {
+          "id": "fees_electrical",
+          "patterns": ["electrical fee", "electrical cost", "price for electrical"],
+          "response": "**Electrical Works (Category E) Fees:**\n- **Class E1**: ¢1,500 (Renewal: ¢410)\n- **Class E2**: ¢1,000 (Renewal: ¢210)\n- **Class E3**: ¢300 (Renewal: ¢50)"
+        },
+        {
+          "id": "fees_building",
+          "patterns": ["building fee", "construction cost", "civil works price"],
+          "response": "**Building & Civil Works (Category DK) Fees:**\n- **Class D1K1**: ¢3,500 (Renewal: ¢2010)\n- **Class D2K2**: ¢2,500 (Renewal: ¢410)\n- **Class D3K3**: ¢600 (Renewal: ¢210)"
+        },
+        {
+          "id": "fees_plumbing",
+          "patterns": ["plumbing fee", "plumbing cost", "price for plumbing"],
+          "response": "**Plumbing Works (Category G) Fees:**\n- **Class G1**: ¢1,000 (Renewal: ¢210)\n- **Class G2**: ¢400 (Renewal: ¢50)"
+        },    {
       "id": "documents",
       "patterns": ["document", "requirement", "need to upload", "files"],
       "response": "You will need to upload scanned copies of the following:\n1. **Certificate of Incorporation**\n2. **Certificate to Commence Business**\n3. **Tax Clearance Certificate**\n4. **SSNIT Clearance Certificate**\n\nEnsure they are clear PDF or Image files."

@@ -78,7 +78,7 @@ export function CompanyInfoForm({ application, onSuccess }: CompanyInfoFormProps
       // Move to next step (Director Info)
       await updateApplication(application.id, {
           current_step: 5, // 5 = Directors Info
-          status: "in_review" // Or keep as pending/submitted
+          status: "draft" 
       });
 
       toast.success("Company information saved!");
