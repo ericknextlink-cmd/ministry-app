@@ -149,14 +149,14 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
     setError(null);
     try {
         await authApi.register(data);
-        await login(data.email, data.password);
+        // Removed auto-login to enforce email verification
     } catch (err: any) {
         setError(err.message || "Failed to register.");
         throw err;
     } finally {
         setLoading(false);
     }
-  }, [login]);
+  }, []);
 
   const createApplication = useCallback(async (data: { certificate_type: Application["certificate_type"]; description?: string }) => {
     if (!userToken) throw new Error("Not authenticated.");

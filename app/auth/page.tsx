@@ -105,8 +105,12 @@ export default function AuthPage() {
           companyRegistrationNumber: regCompanyRegNumber,
           companyType: regCompanyType
       });
-      toast.success("Registration successful!");
-      // Context will auto-login and useEffect will redirect
+      toast.success("Registration successful!", {
+          description: "A verification email has been sent to your inbox. Please verify your email to activate your account.",
+          duration: 10000,
+      });
+      setMode("login"); // Switch back to login
+      setEmail(regEmail); // Pre-fill login email
     } catch (err: any) {
         toast.error(err.message || "Registration failed");
     }

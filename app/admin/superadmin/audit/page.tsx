@@ -156,6 +156,7 @@ export default function AuditLogsPage() {
                     <SelectItem value="STATUS_UPDATE_REJECTED">App Rejected</SelectItem>
                     <SelectItem value="STATUS_UPDATE_SUSPENDED">App Suspended</SelectItem>
                     <SelectItem value="APPLICATION_ASSIGNED">App Assigned</SelectItem>
+                    <SelectItem value="TEMPLATE_UPDATED">Template Updated</SelectItem>
                 </SelectContent>
             </Select>
         </div>
