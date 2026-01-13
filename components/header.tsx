@@ -32,6 +32,7 @@ export function Header() {
                 src="/ministry-1.png"
                 alt="Ministry Logo"
                 fill
+                sizes="(max-width: 768px) 32px, 40px"
                 className="object-contain"
               />
             </div>
@@ -51,7 +52,7 @@ export function Header() {
                 {link.label}
               </Link>
             ))}
-            <ThemeToggle />
+            <ThemeToggle iconClassName="text-white" />
             <Button
               asChild
               size="sm"
@@ -63,7 +64,7 @@ export function Header() {
 
           {/* Mobile/Tablet Menu Button */}
           <div className="flex items-center gap-2 lg:hidden">
-            <ThemeToggle />
+            <ThemeToggle iconClassName="text-white" />
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="text-white hover:text-white/80"

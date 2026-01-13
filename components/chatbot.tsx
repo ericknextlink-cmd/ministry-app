@@ -268,7 +268,13 @@ export function Chatbot() {
               <div className="flex items-center justify-between border-b border-gray-200/80 p-4 text-gray-900 dark:border-gray-700/80 dark:text-gray-100">
                 <div className="flex items-center gap-3">
                   <div className="relative h-12 w-12">
-                    <Image src="/ministry-1.png" alt="Ministry Logo" fill className="object-contain" />
+                    <Image 
+                      src="/ministry-1.png" 
+                      alt="Ministry Logo" 
+                      fill 
+                      sizes="48px"
+                      className="object-contain" 
+                    />
                   </div>
                   <div>
                     <h3 className="font-bold text-lg">Mavis</h3>

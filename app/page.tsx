@@ -69,7 +69,7 @@ export default function Home() {
 
               {/* Carousel Container */}
               <div className="relative group">
-                <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800">
+                <div className="relative aspect-video w-full overflow-hidden rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800">
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={currentIndex}
@@ -83,6 +83,7 @@ export default function Home() {
                         src={currentItem.image}
                         alt={currentItem.title}
                         fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         className="object-cover"
                         priority
                       />
@@ -107,7 +108,7 @@ export default function Home() {
                 </div>
 
                 {/* Carousel Indicators */}
-                <div className="mt-6 flex justify-center lg:justify-start gap-2">
+                <div className="mt-6 flex justify-center gap-2">
                   {carouselItems.map((_, index) => (
                     <button
                       key={index}
@@ -125,7 +126,7 @@ export default function Home() {
               {/* Description */}
               <div className="bg-gray-50 dark:bg-gray-900/50 p-6 rounded-xl border border-gray-100 dark:border-gray-800">
                 <p className="text-lg md:text-xl text-gray-700 dark:text-gray-300 leading-relaxed italic">
-                  "{currentItem.description}"
+                  &ldquo;{currentItem.description}&rdquo;
                 </p>
               </div>
             </div>

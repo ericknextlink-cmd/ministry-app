@@ -51,7 +51,7 @@
     },
     {
       "id": "issued_certificates",
-      "patterns": ["list all certificates", "types of certificates", "certificates issued", "what do you issue"],
+      "patterns": ["list all certificates", "types of certificates", "certificates issued", "what do you issue", "which certificate", "what certificate", "license", "licenses", "which license"],
       "response": "The Ministry of Works, Housing & Water Resources issues the following Classification Certificates:\n1. **General Building & Civil Works**: For contractors in construction, roads, and infrastructure.\n2. **Electrical Works**: For electrical installations and maintenance projects.\n3. **Plumbing Works**: For water supply and sanitary installation services.\n\nYou can apply for any of these through this portal."
     }
   ],

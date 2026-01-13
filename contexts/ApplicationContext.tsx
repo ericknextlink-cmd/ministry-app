@@ -148,15 +148,37 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
     setLoading(true);
     setError(null);
     try {
+        // Step 1: Register the user
         await authApi.register(data);
-        await login(data.email, data.password);
+        
+        // Step 2: Get access token from access-token endpoint
+        const tokenResponse = await authApi.login(data.email, data.password);
+        
+        // Step 3: Use the token to authenticate/log in
+        localStorage.setItem("access_token", tokenResponse.access_token);
+        setUserToken(tokenResponse.access_token);
+        setIsAuthenticated(true);
+        
+        // Step 4: Fetch user details with the token
+        const userData = await authApi.getMe(tokenResponse.access_token);
+        setUser(userData);
+        
+        // Step 5: Fetch applications
+        await fetchApplications();
+        
+        return userData;
     } catch (err: any) {
         setError(err.message || "Failed to register.");
+        // Clear any partial state
+        localStorage.removeItem("access_token");
+        setUserToken(null);
+        setUser(null);
+        setIsAuthenticated(false);
         throw err;
     } finally {
         setLoading(false);
     }
-  }, [login]);
+  }, [fetchApplications]);
 
   const createApplication = useCallback(async (data: { certificate_type: Application["certificate_type"]; description?: string }) => {
     if (!userToken) throw new Error("Not authenticated.");

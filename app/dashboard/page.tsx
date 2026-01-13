@@ -6,19 +6,11 @@ import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { DashboardHeader } from "@/components/dashboard-header";
-import { Activity, Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { Activity, Plus, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { useApplication } from "@/contexts/ApplicationContext";
 import { ApplicationCard } from "@/components/application-card";
 import { ApplicationDetails } from "@/components/application-details";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { formatApplicationId } from "@/lib/utils";
 
@@ -488,32 +480,91 @@ function DashboardContent() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-md overflow-hidden border border-gray-200 dark:border-gray-800"
+                className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-2xl overflow-hidden border border-gray-200 dark:border-gray-800"
             >
                 <div className="p-6">
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Start New Application</h2>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Start New Application</h2>
                     <p className="text-gray-500 dark:text-gray-400 mb-6">Select the type of classification certificate you wish to apply for.</p>
                     
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="cert-type">Certificate Type</Label>
-                            <Select onValueChange={setNewAppType} value={newAppType}>
-                                <SelectTrigger id="cert-type">
-                                    <SelectValue placeholder="Select type..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="electrical">Electrical Works</SelectItem>
-                                    <SelectItem value="building">General Building & Civil Works</SelectItem>
-                                    <SelectItem value="plumbing">Plumbing Works</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+                    {/* Certificate Type Selection Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        {/* Electrical Works */}
+                        <button
+                            type="button"
+                            onClick={() => setNewAppType("electrical")}
+                            className={`relative p-4 rounded-xl border-2 transition-all text-left ${
+                                newAppType === "electrical"
+                                    ? "border-[#033783] bg-blue-50 dark:bg-blue-900/20 shadow-md"
+                                    : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800"
+                            }`}
+                        >
+                            {newAppType === "electrical" && (
+                                <div className="absolute top-2 right-2">
+                                    <div className="h-6 w-6 rounded-full bg-[#033783] flex items-center justify-center">
+                                        <Check className="h-4 w-4 text-white" />
+                                    </div>
+                                </div>
+                            )}
+                            <div className="space-y-2">
+                                <h3 className="font-semibold text-gray-900 dark:text-gray-100">Electrical Works</h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">Category E</p>
+                            </div>
+                        </button>
+
+                        {/* Building & Civil Works */}
+                        <button
+                            type="button"
+                            onClick={() => setNewAppType("building")}
+                            className={`relative p-4 rounded-xl border-2 transition-all text-left ${
+                                newAppType === "building"
+                                    ? "border-[#033783] bg-blue-50 dark:bg-blue-900/20 shadow-md"
+                                    : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800"
+                            }`}
+                        >
+                            {newAppType === "building" && (
+                                <div className="absolute top-2 right-2">
+                                    <div className="h-6 w-6 rounded-full bg-[#033783] flex items-center justify-center">
+                                        <Check className="h-4 w-4 text-white" />
+                                    </div>
+                                </div>
+                            )}
+                            <div className="space-y-2">
+                                <h3 className="font-semibold text-gray-900 dark:text-gray-100">Building & Civil Works</h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">Category DK</p>
+                            </div>
+                        </button>
+
+                        {/* Plumbing Works */}
+                        <button
+                            type="button"
+                            onClick={() => setNewAppType("plumbing")}
+                            className={`relative p-4 rounded-xl border-2 transition-all text-left ${
+                                newAppType === "plumbing"
+                                    ? "border-[#033783] bg-blue-50 dark:bg-blue-900/20 shadow-md"
+                                    : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800"
+                            }`}
+                        >
+                            {newAppType === "plumbing" && (
+                                <div className="absolute top-2 right-2">
+                                    <div className="h-6 w-6 rounded-full bg-[#033783] flex items-center justify-center">
+                                        <Check className="h-4 w-4 text-white" />
+                                    </div>
+                                </div>
+                            )}
+                            <div className="space-y-2">
+                                <h3 className="font-semibold text-gray-900 dark:text-gray-100">Plumbing Works</h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">Category G</p>
+                            </div>
+                        </button>
                     </div>
 
-                    <div className="flex justify-end gap-3 mt-8">
+                    <div className="flex justify-end gap-3 mt-6">
                         <Button 
                             variant="outline" 
-                            onClick={() => setIsNewAppModalOpen(false)}
+                            onClick={() => {
+                                setIsNewAppModalOpen(false);
+                                setNewAppType("");
+                            }}
                             disabled={isCreating}
                         >
                             Cancel

@@ -27,6 +27,15 @@ export default function AuthPage() {
   const [mode, setMode] = useState<AuthMode>("login");
   const [showPassword, setShowPassword] = useState(false);
   
+  // Check URL params for mode (e.g., if redirected after failed registration)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const modeParam = params.get('mode');
+    if (modeParam === 'login') {
+      setMode('login');
+    }
+  }, []);
+  
   // Login State
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -43,17 +52,20 @@ export default function AuthPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
 
-  /*
+  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && user) {
-        if (user.is_superuser) {
-            router.push("/admin");
-        } else {
-            router.push("/dashboard");
-        }
+      const isAdmin = user.is_superuser || 
+                     user.role === 'admin' || 
+                     user.role === 'super_admin';
+      
+      if (isAdmin) {
+        router.push("/admin");
+      } else {
+        router.push("/dashboard");
+      }
     }
   }, [isAuthenticated, user, router]);
-  */
 
   const toggleMode = () => {
     setMode(mode === "login" ? "register" : "login");
@@ -97,7 +109,7 @@ export default function AuthPage() {
     }
 
     try {
-      await register({
+      const registeredUser = await register({
           email: regEmail, 
           password: regPassword,
           companyName: regCompanyName,
@@ -105,10 +117,28 @@ export default function AuthPage() {
           companyRegistrationNumber: regCompanyRegNumber,
           companyType: regCompanyType
       });
+      
       toast.success("Registration successful!");
-      // Context will auto-login and useEffect will redirect
+      
+      // Redirect based on user role
+      if (registeredUser) {
+        const isAdmin = registeredUser.is_superuser || 
+                       registeredUser.role === 'admin' || 
+                       registeredUser.role === 'super_admin';
+        
+        if (isAdmin) {
+          router.push("/admin");
+        } else {
+          router.push("/dashboard");
+        }
+      }
     } catch (err: any) {
         toast.error(err.message || "Registration failed");
+        // If registration succeeds but login fails, switch to login mode
+        // The error message will indicate what went wrong
+        setMode("login");
+        // Pre-fill email for convenience
+        setEmail(regEmail);
     }
   };
 

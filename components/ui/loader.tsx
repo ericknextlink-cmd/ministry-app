@@ -60,6 +60,7 @@ export function Loader({ size = 80, fullScreen = true, text = "Loading..." }: Lo
               src="/ministry-1.png"
               alt="Ministry Logo"
               fill
+              sizes={`${size}px`}
               className="object-contain"
               priority
             />
