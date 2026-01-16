@@ -60,8 +60,7 @@ export function DirectorsForm({ application, onSuccess }: DirectorsFormProps) {
                         position: d.position,
                         nationality: d.nationality,
                         phone_number: d.phone_number,
-                        email: d.email,
-                        application_id: application.id
+                        email: d.email
                     });
                 }
                 toast.info("Directors information from your previous application has been auto-filled.");
@@ -94,10 +93,7 @@ export function DirectorsForm({ application, onSuccess }: DirectorsFormProps) {
     
     setAdding(true);
     try {
-        await addDirector(application.id, {
-            ...newDirector,
-            application_id: application.id
-        });
+        await addDirector(application.id, newDirector);
         toast.success("Director added");
         setNewDirector({
             name: "",

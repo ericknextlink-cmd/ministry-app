@@ -171,7 +171,13 @@ export function Chatbot() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to get response");
+        const errorText = await response.text().catch(() => "Unknown error");
+        console.error("Chatbot API response error:", {
+          status: response.status,
+          statusText: response.statusText,
+          errorText: errorText.substring(0, 100)
+        });
+        throw new Error(`Failed to get response: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -186,13 +192,18 @@ export function Chatbot() {
       };
       saveConversations([newConversation, ...conversations]);
 
-    } catch (error) {
-      console.error("Error:", error);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error("Chatbot handleSend error:", {
+        message: error.message,
+        stack: error.stack,
+        userMessage: userMessage.substring(0, 50)
+      });
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "I'm sorry, I encountered an error. Please try again or contact the Classification Office directly.",
+          content: "I'm sorry, I encountered an error. Please try again or contact the Classification Office directly at info@mofh.gov.gh or +233 784 787 58.",
         },
       ]);
     } finally {

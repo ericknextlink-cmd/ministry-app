@@ -36,3 +36,64 @@ export interface AuditLog {
   user_id: number;
   user_email: string;
 }
+
+export interface CompanyInfo {
+  id: number;
+  company_name: string;
+  registration_number: string;
+  address: string;
+  city: string;
+  country: string;
+  phone_number: string;
+  email: string;
+  application_id: number;
+}
+
+export interface CompanyInfoCreate {
+  company_name: string;
+  registration_number: string;
+  address: string;
+  city: string;
+  country: string;
+  phone_number: string;
+  email: string;
+  application_id: number;
+}
+
+export interface CompanyInfoUpdate {
+  company_name?: string;
+  registration_number?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  phone_number?: string;
+  email?: string;
+}
+
+export interface Director {
+  id: number;
+  name: string;
+  position: string;
+  nationality: string;
+  phone_number: string;
+  email: string;
+  application_id: number;
+}
+
+export interface DirectorCreate {
+  name: string;
+  position: string;
+  nationality: string;
+  phone_number: string;
+  email: string;
+  application_id: number;
+}
+
+export interface Document {
+  id: number;
+  document_type: string;
+  filename: string;
+  file_url: string;
+  uploaded_at: string;
+  application_id: number;
+}

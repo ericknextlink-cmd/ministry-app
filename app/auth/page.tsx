@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -23,18 +22,17 @@ type AuthMode = "login" | "register";
 
 export default function AuthPage() {
   const router = useRouter();
-  const { login, register, isAuthenticated, loading, error, user } = useApplication(); // Get user
-  const [mode, setMode] = useState<AuthMode>("login");
-  const [showPassword, setShowPassword] = useState(false);
+  const { login, register, isAuthenticated, loading, user } = useApplication();
   
-  // Check URL params for mode (e.g., if redirected after failed registration)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const modeParam = params.get('mode');
-    if (modeParam === 'login') {
-      setMode('login');
+  // Initialize mode from URL params using lazy initialization to avoid useEffect
+  const [mode, setMode] = useState<AuthMode>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('mode') === 'login' ? 'login' : 'register';
     }
-  }, []);
+    return 'login';
+  });
+  const [showPassword, setShowPassword] = useState(false);
   
   // Login State
   const [email, setEmail] = useState("");
@@ -91,8 +89,9 @@ export default function AuthPage() {
           console.log("Redirecting to Dashboard");
           router.push("/dashboard");
       }
-    } catch (err: any) {
-       toast.error(err.message || "Login failed");
+    } catch (err) {
+       const error = err instanceof Error ? err : new Error(String(err));
+       toast.error(error.message || "Login failed");
     }
   };
 
@@ -109,7 +108,7 @@ export default function AuthPage() {
     }
 
     try {
-      const registeredUser = await register({
+      await register({
           email: regEmail, 
           password: regPassword,
           companyName: regCompanyName,
@@ -117,28 +116,15 @@ export default function AuthPage() {
           companyRegistrationNumber: regCompanyRegNumber,
           companyType: regCompanyType
       });
-      
-      toast.success("Registration successful!");
-      
-      // Redirect based on user role
-      if (registeredUser) {
-        const isAdmin = registeredUser.is_superuser || 
-                       registeredUser.role === 'admin' || 
-                       registeredUser.role === 'super_admin';
-        
-        if (isAdmin) {
-          router.push("/admin");
-        } else {
-          router.push("/dashboard");
-        }
-      }
-    } catch (err: any) {
-        toast.error(err.message || "Registration failed");
-        // If registration succeeds but login fails, switch to login mode
-        // The error message will indicate what went wrong
-        setMode("login");
-        // Pre-fill email for convenience
-        setEmail(regEmail);
+      toast.success("Registration successful!", {
+          description: "A verification email has been sent to your inbox. Please verify your email to activate your account.",
+          duration: 10000,
+      });
+      setMode("login"); // Switch to login mode
+      setEmail(regEmail); // Pre-fill login email
+    } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        toast.error(error.message || "Registration failed");
     }
   };
 

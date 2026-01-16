@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { api, authApi, companyInfoApi, directorsApi, documentsApi } from "@/lib/api";
-import { Application, User } from "@/lib/types";
+import { Application, User, CompanyInfo, CompanyInfoUpdate, Director, DirectorCreate, Document } from "@/lib/types";
 import { Loader } from "@/components/ui/loader";
 
 type ApplicationStep = 
@@ -17,25 +17,25 @@ type ApplicationStep =
 interface ApplicationContextType {
   isAuthenticated: boolean;
   userToken: string | null;
-  user: User | null; // Added user
-  login: (email: string, password: string) => Promise<User | null>; // Return User
+  user: User | null;
+  login: (email: string, password: string) => Promise<User | null>;
   register: (data: { email: string; password: string; companyName?: string; phone?: string; companyRegistrationNumber?: string; companyType?: string }) => Promise<void>;
   logout: () => void;
   applications: Application[];
   fetchApplications: () => Promise<void>;
-  refreshApplications: () => Promise<void>; // Alias for fetchApplications
+  refreshApplications: () => Promise<void>;
   createApplication: (data: { certificate_type: Application["certificate_type"]; description?: string }) => Promise<Application>;
   renewApplication: (id: number) => Promise<Application>;
   cancelApplication: (id: number) => Promise<Application>;
   updateApplication: (id: number, data: Partial<Application>) => Promise<Application>;
-  saveCompanyInfo: (applicationId: number, data: any) => Promise<void>;
-  getLatestCompanyInfo: () => Promise<any>; // New function
-  addDirector: (applicationId: number, data: any) => Promise<void>;
-  getDirectors: (applicationId: number) => Promise<any[]>;
-  getLatestDirectors: () => Promise<any[]>;
+  saveCompanyInfo: (applicationId: number, data: CompanyInfoUpdate) => Promise<void>;
+  getLatestCompanyInfo: () => Promise<CompanyInfo | null>;
+  addDirector: (applicationId: number, data: Omit<DirectorCreate, 'application_id'>) => Promise<void>;
+  getDirectors: (applicationId: number) => Promise<Director[]>;
+  getLatestDirectors: () => Promise<Director[]>;
   removeDirector: (directorId: number) => Promise<void>;
   uploadDocument: (applicationId: number, documentType: string, file: File) => Promise<void>;
-  getDocuments: (applicationId: number) => Promise<any[]>;
+  getDocuments: (applicationId: number) => Promise<Document[]>;
   removeDocument: (documentId: number) => Promise<void>;
   loading: boolean;
   error: string | null;
@@ -80,20 +80,17 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
   const fetchApplications = useCallback(async () => {
     if (!userToken) return; 
 
-    // Don't set global loading here to avoid blocking UI on background refresh
-    // setLoading(true); 
     setError(null);
     try {
       const fetchedApps = await api.get<Application[]>("/applications/", userToken);
       setApplications(fetchedApps);
-    } catch (err: any) {
-      console.error("Error fetching applications:", err);
-      if (err.message.includes("403") || err.message.includes("401") || err.message.toLowerCase().includes("could not validate credentials")) {
+    } catch (err) {
+      const error = err as Error;
+      console.error("Error fetching applications:", error);
+      if (error.message?.includes("403") || error.message?.includes("401") || error.message?.toLowerCase().includes("could not validate credentials")) {
         logout();
         setError("Session expired. Please login again.");
       }
-    } finally {
-      // setLoading(false);
     }
   }, [userToken, logout]);
 
@@ -133,87 +130,130 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
       setUser(userData);
 
       await fetchApplications(); 
-      return userData; // Return the user data
-    } catch (err: any) {
-      setError(err.message || "Failed to log in.");
-      // throw err; // Don't throw, let component handle null return or check error
-      // Actually throwing is better for the component to know it failed
-      throw err;
+      return userData;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      // Business logic errors (validation, unverified email, etc.) are expected
+      // Only log unexpected errors or use warn for expected ones
+      const isExpectedError = error.message.toLowerCase().includes('not verified') || 
+                               error.message.toLowerCase().includes('invalid') ||
+                               error.message.toLowerCase().includes('credentials') ||
+                               error.message.toLowerCase().includes('password');
+      
+      if (isExpectedError) {
+        console.warn("login: Expected authentication failure", {
+          error: error.message,
+          email
+        });
+      } else {
+        console.error("login: Unexpected login error", {
+          error: error.message,
+          email,
+          stack: error.stack
+        });
+      }
+      
+      setError(error.message || "Failed to log in.");
+      throw error;
     } finally {
       setLoading(false);
     }
-  }, [userToken, fetchApplications]);
+  }, [fetchApplications]);
 
-  const register = useCallback(async (data: { email: string; password: string; companyName?: string; phone?: string; companyRegistrationNumber?: string; companyType?: string }) => {
+  const register = useCallback(async (data: { email: string; password: string; companyName?: string; phone?: string; companyRegistrationNumber?: string; companyType?: string }): Promise<void> => {
     setLoading(true);
     setError(null);
     try {
-        // Step 1: Register the user
+        // Register the user (backend will send verification email)
         await authApi.register(data);
         
-        // Step 2: Get access token from access-token endpoint
-        const tokenResponse = await authApi.login(data.email, data.password);
+        // No auto-login since email verification is required
+        // User will need to verify email and then log in manually
+    } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        // Business logic errors (validation, email exists, etc.) are expected
+        // Only log unexpected errors or use warn for expected ones
+        const isExpectedError = error.message.toLowerCase().includes('already exists') || 
+                                 error.message.toLowerCase().includes('not verified') ||
+                                 error.message.toLowerCase().includes('invalid') ||
+                                 error.message.toLowerCase().includes('validation');
         
-        // Step 3: Use the token to authenticate/log in
-        localStorage.setItem("access_token", tokenResponse.access_token);
-        setUserToken(tokenResponse.access_token);
-        setIsAuthenticated(true);
+        if (isExpectedError) {
+          console.warn("register: Expected registration failure", {
+            error: error.message,
+            email: data.email
+          });
+        } else {
+          console.error("register: Unexpected registration error", {
+            error: error.message,
+            email: data.email,
+            stack: error.stack
+          });
+        }
         
-        // Step 4: Fetch user details with the token
-        const userData = await authApi.getMe(tokenResponse.access_token);
-        setUser(userData);
-        
-        // Step 5: Fetch applications
-        await fetchApplications();
-        
-        return userData;
-    } catch (err: any) {
-        setError(err.message || "Failed to register.");
-        // Clear any partial state
-        localStorage.removeItem("access_token");
-        setUserToken(null);
-        setUser(null);
-        setIsAuthenticated(false);
-        throw err;
+        setError(error.message || "Failed to register.");
+        throw error;
     } finally {
         setLoading(false);
     }
-  }, [fetchApplications]);
+  }, []);
 
   const createApplication = useCallback(async (data: { certificate_type: Application["certificate_type"]; description?: string }) => {
-    if (!userToken) throw new Error("Not authenticated.");
+    if (!userToken) {
+      const error = new Error("Not authenticated.");
+      console.error("createApplication: Authentication error", error);
+      throw error;
+    }
 
     setLoading(true);
-    // setError(null); // Don't reset global error
     try {
       const newApp = await api.post<Application>("/applications/", data, userToken);
       setApplications((prev) => [...prev, newApp]);
       return newApp;
-    } catch (err: any) {
-      // setError(err.message || "Failed to create application."); // Don't set global error
-      throw err;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error("createApplication: Failed to create application", {
+        error: error.message,
+        data,
+        stack: error.stack
+      });
+      throw error;
     } finally {
       setLoading(false);
     }
   }, [userToken]);
 
   const renewApplication = useCallback(async (id: number) => {
-    if (!userToken) throw new Error("Not authenticated.");
+    if (!userToken) {
+      const error = new Error("Not authenticated.");
+      console.error("renewApplication: Authentication error", error);
+      throw error;
+    }
 
     setLoading(true);
     try {
       const newApp = await api.post<Application>(`/applications/${id}/renew`, {}, userToken);
       setApplications((prev) => [...prev, newApp]);
       return newApp;
-    } catch (err: any) {
-      throw err;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error("renewApplication: Failed to renew application", {
+        error: error.message,
+        applicationId: id,
+        stack: error.stack
+      });
+      throw error;
     } finally {
       setLoading(false);
     }
   }, [userToken]);
 
   const cancelApplication = useCallback(async (id: number) => {
-    if (!userToken) throw new Error("Not authenticated.");
+    if (!userToken) {
+      const error = new Error("Not authenticated.");
+      console.error("cancelApplication: Authentication error", error);
+      throw error;
+    }
 
     setLoading(true);
     try {
@@ -222,16 +262,25 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
         prev.map((app) => (app.id === id ? cancelledApp : app))
       );
       return cancelledApp;
-    } catch (err: any) {
-      throw err;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error("cancelApplication: Failed to cancel application", {
+        error: error.message,
+        applicationId: id,
+        stack: error.stack
+      });
+      throw error;
     } finally {
       setLoading(false);
     }
   }, [userToken]);
 
   const updateApplication = useCallback(async (id: number, data: Partial<Application>) => {
-    console.log("Context updateApplication called:", id, data);
-    if (!userToken) throw new Error("Not authenticated.");
+    if (!userToken) {
+      const error = new Error("Not authenticated.");
+      console.error("updateApplication: Authentication error", error);
+      throw error;
+    }
 
     setLoading(true);
     try {
@@ -240,113 +289,200 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
         prev.map((app) => (app.id === id ? updatedApp : app))
       );
       return updatedApp;
-    } catch (err: any) {
-      throw err;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error("updateApplication: Failed to update application", {
+        error: error.message,
+        applicationId: id,
+        data,
+        stack: error.stack
+      });
+      throw error;
     } finally {
       setLoading(false);
     }
   }, [userToken]);
 
-  const saveCompanyInfo = useCallback(async (applicationId: number, data: any) => {
-    if (!userToken) throw new Error("Not authenticated.");
+  const saveCompanyInfo = useCallback(async (applicationId: number, data: CompanyInfoUpdate) => {
+    if (!userToken) {
+      const error = new Error("Not authenticated.");
+      console.error("saveCompanyInfo: Authentication error", error);
+      throw error;
+    }
+    
     setLoading(true);
     try {
         try {
-            await companyInfoApi.get(applicationId, userToken);
-            await companyInfoApi.update(applicationId, data, userToken);
-        } catch (err: any) {
-            if (err.message.includes("404") || err.message.includes("not found")) {
-                 await companyInfoApi.create({ ...data, application_id: applicationId }, userToken);
+            await companyInfoApi.get<CompanyInfo>(applicationId, userToken);
+            await companyInfoApi.update<CompanyInfo>(applicationId, data, userToken);
+        } catch (err) {
+            const error = err instanceof Error ? err : new Error(String(err));
+            if (error.message?.includes("404") || error.message?.includes("not found")) {
+                 await companyInfoApi.create<CompanyInfo>({ ...data, application_id: applicationId } as CompanyInfoUpdate & { application_id: number }, userToken);
             } else {
+                console.error("saveCompanyInfo: Failed to get/update company info", {
+                  error: error.message,
+                  applicationId,
+                  stack: error.stack
+                });
                 throw err; 
             }
         }
-    } catch (err: any) {
-        throw err;
+    } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        console.error("saveCompanyInfo: Failed to save company info", {
+          error: error.message,
+          applicationId,
+          data,
+          stack: error.stack
+        });
+        throw error;
     } finally {
         setLoading(false);
     }
   }, [userToken]);
 
-  const getLatestCompanyInfo = useCallback(async () => {
+  const getLatestCompanyInfo = useCallback(async (): Promise<CompanyInfo | null> => {
       if (!userToken) return null;
       try {
-          return await companyInfoApi.getLatest(userToken);
+          return await companyInfoApi.getLatest<CompanyInfo>(userToken);
       } catch (err) {
-          console.log("No latest info found or error fetching it.");
+          const error = err instanceof Error ? err : new Error(String(err));
+          console.warn("getLatestCompanyInfo: No latest info found or error fetching it", {
+            error: error.message,
+            stack: error.stack
+          });
           return null;
       }
   }, [userToken]);
 
-  const getLatestDirectors = useCallback(async () => {
+  const getLatestDirectors = useCallback(async (): Promise<Director[]> => {
       if (!userToken) return [];
       try {
-          return await directorsApi.getLatest<any[]>(userToken);
+          return await directorsApi.getLatest<Director[]>(userToken);
       } catch (err) {
-          console.log("No latest directors found.");
+          const error = err instanceof Error ? err : new Error(String(err));
+          console.warn("getLatestDirectors: No latest directors found", {
+            error: error.message,
+            stack: error.stack
+          });
           return [];
       }
   }, [userToken]);
 
-  const addDirector = useCallback(async (applicationId: number, data: any) => {
-      if (!userToken) throw new Error("Not authenticated.");
+  const addDirector = useCallback(async (applicationId: number, data: Omit<DirectorCreate, 'application_id'>) => {
+      if (!userToken) {
+        const error = new Error("Not authenticated.");
+        console.error("addDirector: Authentication error", error);
+        throw error;
+      }
       setLoading(true);
       try {
-          await directorsApi.create({ ...data, application_id: applicationId }, userToken);
-      } catch (err: any) {
-          throw err;
+          await directorsApi.create<Director>({ ...data, application_id: applicationId }, userToken);
+      } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          console.error("addDirector: Failed to add director", {
+            error: error.message,
+            applicationId,
+            data,
+            stack: error.stack
+          });
+          throw error;
       } finally {
           setLoading(false);
       }
   }, [userToken]);
 
-  const getDirectors = useCallback(async (applicationId: number): Promise<any[]> => {
+  const getDirectors = useCallback(async (applicationId: number): Promise<Director[]> => {
       if (!userToken) return [];
       try {
-          return await directorsApi.list<any[]>(applicationId, userToken);
-      } catch (err: any) {
-          console.error(err);
+          return await directorsApi.list<Director[]>(applicationId, userToken);
+      } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          console.error("getDirectors: Failed to fetch directors", {
+            error: error.message,
+            applicationId,
+            stack: error.stack
+          });
           return [];
       }
   }, [userToken]);
 
   const removeDirector = useCallback(async (directorId: number) => {
-      if (!userToken) throw new Error("Not authenticated.");
+      if (!userToken) {
+        const error = new Error("Not authenticated.");
+        console.error("removeDirector: Authentication error", error);
+        throw error;
+      }
       try {
-          await directorsApi.delete(directorId, userToken);
-      } catch (err: any) {
-          throw err;
+          await directorsApi.delete<void>(directorId, userToken);
+      } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          console.error("removeDirector: Failed to remove director", {
+            error: error.message,
+            directorId,
+            stack: error.stack
+          });
+          throw error;
       }
   }, [userToken]);
 
   const uploadDocument = useCallback(async (applicationId: number, documentType: string, file: File) => {
-      if (!userToken) throw new Error("Not authenticated.");
+      if (!userToken) {
+        const error = new Error("Not authenticated.");
+        console.error("uploadDocument: Authentication error", error);
+        throw error;
+      }
       setLoading(true);
       try {
-          await documentsApi.upload(applicationId, documentType, file, userToken);
-      } catch (err: any) {
-          throw err;
+          await documentsApi.upload<Document>(applicationId, documentType, file, userToken);
+      } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          console.error("uploadDocument: Failed to upload document", {
+            error: error.message,
+            applicationId,
+            documentType,
+            fileName: file.name,
+            fileSize: file.size,
+            stack: error.stack
+          });
+          throw error;
       } finally {
           setLoading(false);
       }
   }, [userToken]);
 
-  const getDocuments = useCallback(async (applicationId: number): Promise<any[]> => {
+  const getDocuments = useCallback(async (applicationId: number): Promise<Document[]> => {
       if (!userToken) return [];
       try {
-          return await documentsApi.list<any[]>(applicationId, userToken);
-      } catch (err: any) {
-          console.error(err);
+          return await documentsApi.list<Document[]>(applicationId, userToken);
+      } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          console.error("getDocuments: Failed to fetch documents", {
+            error: error.message,
+            applicationId,
+            stack: error.stack
+          });
           return [];
       }
   }, [userToken]);
 
   const removeDocument = useCallback(async (documentId: number) => {
-      if (!userToken) throw new Error("Not authenticated.");
+      if (!userToken) {
+        const error = new Error("Not authenticated.");
+        console.error("removeDocument: Authentication error", error);
+        throw error;
+      }
       try {
-          await documentsApi.delete(documentId, userToken);
-      } catch (err: any) {
-          throw err;
+          await documentsApi.delete<void>(documentId, userToken);
+      } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          console.error("removeDocument: Failed to remove document", {
+            error: error.message,
+            documentId,
+            stack: error.stack
+          });
+          throw error;
       }
   }, [userToken]);
 

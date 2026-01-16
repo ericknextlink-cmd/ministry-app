@@ -34,8 +34,13 @@ function loadKnowledgeBase(): string {
     const path = getKnowledgeBasePath();
     const content = readFileSync(path, 'utf-8');
     return content;
-  } catch (error) {
-    console.error('Error loading knowledge base:', error);
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    console.error('Error loading knowledge base:', {
+      message: error.message,
+      stack: error.stack,
+      path: getKnowledgeBasePath()
+    });
     return '';
   }
 }
@@ -47,8 +52,12 @@ function loadPatternGuide() {
   try {
     // For JSON files, we can import directly
     return chatData;
-  } catch (error) {
-    console.error('Error loading pattern guide:', error);
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    console.error('Error loading pattern guide:', {
+      message: error.message,
+      stack: error.stack
+    });
     return { intents: [], default_response: 'I apologize, but I am having trouble accessing my knowledge base.' };
   }
 }
@@ -235,12 +244,13 @@ export async function POST(req: Request) {
       
       const aiResponse = await generateAIResponse(userMessage, history);
       return NextResponse.json({ response: aiResponse });
-    } catch (error: any) {
-      console.error('AI generation error:', error);
-      console.error('Error details:', {
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('AI generation error:', {
         message: error.message,
         stack: error.stack,
-        userMessage: userMessage.substring(0, 50)
+        userMessage: userMessage.substring(0, 50),
+        historyLength: history.length
       });
       
       // Step 3: Fallback to default response if AI fails
@@ -256,8 +266,12 @@ export async function POST(req: Request) {
       }, { status: 500 });
     }
 
-  } catch (error) {
-    console.error('Chat API Error:', error);
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    console.error('Chat API Error:', {
+      message: error.message,
+      stack: error.stack
+    });
     return NextResponse.json(
       { response: "I'm having trouble processing that right now. Please try again." },
       { status: 500 }

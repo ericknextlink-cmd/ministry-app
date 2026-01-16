@@ -36,14 +36,22 @@ export default function TemplatesPage() {
   const fetchTemplates = async () => {
     setLoading(true);
     const token = localStorage.getItem("access_token");
-    if (!token) return;
+    if (!token) {
+      console.warn("fetchTemplates: No access token found");
+      setLoading(false);
+      return;
+    }
 
     try {
       const data = await adminApi.listTemplates(token);
       setTemplates(data || []);
-    } catch (error: any) {
-      console.error("Failed to fetch templates:", error);
-      toast.error("Failed to load templates.");
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error("fetchTemplates: Failed to fetch templates", {
+        message: error.message,
+        stack: error.stack
+      });
+      toast.error(error.message || "Failed to load templates.");
     } finally {
       setLoading(false);
     }
@@ -76,13 +84,25 @@ export default function TemplatesPage() {
     const token = localStorage.getItem("access_token");
     
     try {
-        if (!token) throw new Error("Not authenticated");
+        if (!token) {
+          const error = new Error("Not authenticated");
+          console.error("handleFileChange: Authentication error", error);
+          toast.error("Please log in again.");
+          return;
+        }
         
         await adminApi.uploadTemplate(renamedFile, token);
         toast.success(`${selectedTemplateId} updated successfully!`);
         await fetchTemplates();
-    } catch (error: any) {
-        console.error(error);
+    } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        console.error("handleFileChange: Failed to upload template", {
+          message: error.message,
+          stack: error.stack,
+          templateId: selectedTemplateId,
+          fileName: file.name,
+          fileSize: file.size
+        });
         toast.error(error.message || "Upload failed.");
     } finally {
         setUploadingId(null);

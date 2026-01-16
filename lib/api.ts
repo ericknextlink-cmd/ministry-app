@@ -1,5 +1,5 @@
-export type { Application, User, UserRole, AuditLog } from "@/lib/types";
-import { Application, User, UserRole, AuditLog } from "@/lib/types";
+export type { Application, User, UserRole, AuditLog, CompanyInfoUpdate } from "@/lib/types";
+import { Application, User, UserRole, AuditLog, CompanyInfoUpdate } from "@/lib/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000/api/v1";
 
@@ -39,13 +39,33 @@ async function request<T>(
   const response = await fetch(`${API_BASE_URL}${url}`, config);
 
   if (!response.ok) {
-    let errorData: any;
+    let errorData: unknown;
+    let errorMessage = `API Error: ${response.status}`;
     try {
         errorData = await response.json();
+        if (errorData && typeof errorData === 'object' && 'detail' in errorData) {
+          errorMessage = String(errorData.detail) || errorMessage;
+        } else if (errorData && typeof errorData === 'object' && 'message' in errorData) {
+          errorMessage = String(errorData.message) || errorMessage;
+        }
     } catch {
         errorData = { detail: response.statusText || "Unknown error" };
+        errorMessage = response.statusText || "Unknown error";
     }
-    throw new Error(errorData.detail || errorData.message || `API Error: ${response.status} - ${errorData.detail}`);
+    
+    // Business logic errors (4xx) are expected - use warn
+    // Technical errors (5xx) are unexpected - use error
+    const isBusinessLogicError = response.status >= 400 && response.status < 500;
+    const logMethod = isBusinessLogicError ? console.warn : console.error;
+    
+    logMethod(`API Request Failed [${method} ${url}]:`, {
+      status: response.status,
+      statusText: response.statusText,
+      errorData,
+      errorMessage
+    });
+    
+    throw new Error(errorMessage);
   }
 
   const text = await response.text();
@@ -77,13 +97,26 @@ export const api = {
     });
 
     if (!response.ok) {
-        let errorData: any;
+        let errorData: unknown;
+        let errorMessage = `Download failed: ${response.status}`;
         try {
             errorData = await response.json();
+            if (errorData && typeof errorData === 'object' && 'detail' in errorData) {
+              errorMessage = String(errorData.detail) || errorMessage;
+            }
         } catch {
             errorData = { detail: response.statusText || "Unknown error" };
+            errorMessage = response.statusText || "Unknown error";
         }
-        throw new Error(errorData.detail || `Download failed: ${response.status} - ${errorData.detail}`);
+        
+        console.error('Download API Request Failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+          errorMessage
+        });
+        
+        throw new Error(errorMessage);
     }
 
     const blob = await response.blob();
@@ -114,13 +147,31 @@ export const authApi = {
     });
 
     if (!response.ok) {
-        let errorData: any;
+        let errorData: unknown;
+        let errorMessage = `Login failed: ${response.status}`;
         try {
             errorData = await response.json();
+            if (errorData && typeof errorData === 'object' && 'detail' in errorData) {
+              errorMessage = String(errorData.detail) || errorMessage;
+            }
         } catch {
             errorData = { detail: response.statusText || "Login failed" };
+            errorMessage = response.statusText || "Login failed";
         }
-      throw new Error(errorData.detail || `Login failed: ${response.status} - ${errorData.detail}`);
+        
+        // Business logic errors (4xx) are expected - use warn
+        // Technical errors (5xx) are unexpected - use error
+        const isBusinessLogicError = response.status >= 400 && response.status < 500;
+        const logMethod = isBusinessLogicError ? console.warn : console.error;
+        
+        logMethod('Login API Request Failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+          errorMessage
+        });
+        
+        throw new Error(errorMessage);
     }
 
     return response.json();
@@ -145,13 +196,35 @@ export const authApi = {
     });
 
     if (!response.ok) {
-        let errorData: any;
+        let errorData: unknown;
+        let errorMessage = `Registration failed: ${response.status}`;
         try {
             errorData = await response.json();
+            if (errorData && typeof errorData === 'object') {
+              if ('detail' in errorData) {
+                errorMessage = String(errorData.detail) || errorMessage;
+              } else if ('message' in errorData) {
+                errorMessage = String(errorData.message) || errorMessage;
+              }
+            }
         } catch {
             errorData = { detail: response.statusText || "Registration failed" };
+            errorMessage = response.statusText || "Registration failed";
         }
-        throw new Error(errorData.detail || errorData.message || `Registration failed: ${response.status}`);
+        
+        // Business logic errors (4xx) are expected - use warn
+        // Technical errors (5xx) are unexpected - use error
+        const isBusinessLogicError = response.status >= 400 && response.status < 500;
+        const logMethod = isBusinessLogicError ? console.warn : console.error;
+        
+        logMethod('Registration API Request Failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+          errorMessage
+        });
+        
+        throw new Error(errorMessage);
     }
 
     return response.json();
@@ -187,10 +260,10 @@ export const companyInfoApi = {
   getLatest: async <T>(token: string) => {
     return api.get<T>(`/company-info/latest/data`, token);
   },
-  create: async <T>(data: any, token: string) => {
+  create: async <T>(data: CompanyInfoUpdate & { application_id: number }, token: string) => {
     return api.post<T>(`/company-info/`, data, token);
   },
-  update: async <T>(applicationId: number, data: any, token: string) => {
+  update: async <T>(applicationId: number, data: CompanyInfoUpdate, token: string) => {
     return api.patch<T>(`/company-info/${applicationId}`, data, token);
   }
 };

@@ -69,10 +69,7 @@ export function CompanyInfoForm({ application, onSuccess }: CompanyInfoFormProps
 
     try {
       // 1. Save Company Info
-      await saveCompanyInfo(application.id, {
-          ...formData,
-          application_id: application.id
-      });
+      await saveCompanyInfo(application.id, formData);
       
       // 2. Update Application Step/Status
       // Move to next step (Director Info)
