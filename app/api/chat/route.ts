@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { readFileSync } from 'fs';
-import { join } from 'path';
+// import { join } from 'path';
 import chatData from '@/lib/chat-data.json';
 import stringSimilarity from 'string-similarity';
 import { chatConfig, getKnowledgeBasePath } from '@/lib/chat-config';

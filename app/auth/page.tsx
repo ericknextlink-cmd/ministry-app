@@ -28,7 +28,7 @@ export default function AuthPage() {
   const [mode, setMode] = useState<AuthMode>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      return params.get('mode') === 'login' ? 'login' : 'register';
+      return params.get('mode') === 'register' ? 'register' : 'login';
     }
     return 'login';
   });
