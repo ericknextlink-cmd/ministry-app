@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { CheckCircle2, Clock, Hourglass, AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import { useApplication } from "@/contexts/ApplicationContext"; // Import useApplication
 import { api } from "@/lib/api"; // Import api for download
 import { toast } from "sonner"; // Import toast for feedback
@@ -43,29 +43,33 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
           name: "General Building & Civil Works",
           shape: "/green-shape.svg",
           color: "#7CB342",
+          icon: "/Building With Rooftop Terrace.svg",
         };
       case "electrical":
         return {
           name: "Electrical Works",
           shape: "/red-shape.svg",
           color: "#E53935",
+          icon: "/Electricity.svg",
         };
       case "plumbing":
         return {
           name: "Plumbing Works",
           shape: "/blue-shape.svg",
           color: "#1E88E5",
+          icon: "/Piping.svg",
         };
       default:
         return {
           name: "Unknown Certification",
           shape: "/blue-shape.svg",
           color: "#9E9E9E",
+          icon: "/Electricity.svg",
         };
     }
   };
 
-  const { name, shape } = getDisplayData(application.certificate_type);
+  const { name, shape, icon } = getDisplayData(application.certificate_type);
 
   // Helper to map backend status to UI status
   const isApproved = application.status === "approved";
@@ -103,9 +107,10 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
             userToken
         );
         toast.success("Certificate download initiated!");
-    } catch (error: any) {
-        console.error("Download failed:", error);
-        toast.error(error.message || "Failed to download certificate.");
+    } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        console.error("Download failed:", err);
+        toast.error(err.message || "Failed to download certificate.");
     } finally {
         setIsDownloading(false);
     }
@@ -117,85 +122,55 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
           await renewApplication(application.id);
           toast.success("Renewal started! You can now continue the application.");
           // Ideally trigger a refresh or callback here
-      } catch (error: any) {
-          toast.error(error.message || "Failed to start renewal.");
+      } catch (error) {
+          const err = error instanceof Error ? error : new Error(String(error));
+          toast.error(err.message || "Failed to start renewal.");
       }
   }; // This closes the handleRenew function
 
   const getStatusButton = () => {
+    let label = "";
+    let onClickHandler: ((e: React.MouseEvent) => void) | undefined;
+    let buttonStyle: React.CSSProperties = {};
+    let isDisabled = false;
+
     if (isSuspended) {
-        return (
-          <button 
-            type="button"
-            className="gradient-border-button rounded-full px-4 py-2.5 text-base font-medium text-white relative left-6"
-            // For now, reuse structure but change label. Custom styling might be needed if gradient overrides.
-            style={{ background: "#F97316", border: "none" }}
-          >
-            Suspended
-          </button>
-        );
+      label = "Suspended";
+      buttonStyle = { background: "#F97316", border: "none" };
     } else if (isExpired) {
-        return (
-          <button 
-            type="button"
-            className="gradient-border-button rounded-full px-4 py-2.5 text-base font-medium text-white relative left-6"
-            onClick={handleRenew}
-          >
-            Renew
-          </button>
-        );
+      label = "Renew";
+      onClickHandler = handleRenew;
     } else if (isApproved) {
-        return (
-          <button 
-            type="button"
-            className="gradient-border-button rounded-full px-4 py-2.5 text-base font-medium text-white relative left-6"
-            onClick={onClick}
-          >
-            Approved
-          </button>
-        );
+      label = "Approved";
+      onClickHandler = onClick;
     } else if (isCancelled) {
-        return (
-          <button 
-            type="button"
-            className="gradient-border-button rounded-full px-4 py-2.5 text-base font-medium text-white relative left-6"
-            style={{ background: "#9CA3AF", border: "none", cursor: "default" }}
-          >
-            Cancelled
-          </button>
-        );
+      label = "Cancelled";
+      buttonStyle = { background: "#9CA3AF", border: "none", cursor: "default" };
+      isDisabled = true;
     } else if (isRejected) {
-        return (
-          <button 
-            type="button"
-            className="gradient-border-button rounded-full px-4 py-2.5 text-base font-medium text-white relative left-6"
-            style={{ background: "#EF4444", border: "none", cursor: "default" }}
-          >
-            Rejected
-          </button>
-        );
+      label = "Rejected";
+      buttonStyle = { background: "#EF4444", border: "none", cursor: "default" };
+      isDisabled = true;
     } else if (application.status === "submitted" || application.status === "in_review") {
-        return (
-          <button 
-            type="button"
-            className="gradient-border-button rounded-full px-4 py-2.5 text-base font-medium text-white relative left-6"
-            style={{ opacity: 0.8, cursor: "default" }}
-          >
-            Pending Approval
-          </button>
-        );
+      label = "Pending Approval";
+      buttonStyle = { opacity: 0.8, cursor: "default" };
+      isDisabled = true;
     } else {
-        // Non-final, non-submitted states (draft, pending_payment) show "Continue"
-        return (
-          <button
-            type="button"
-            onClick={onClick}
-            className="gradient-border-button rounded-full px-4 py-2.5 text-base font-medium text-white relative left-6"
-          >
-            Continue
-          </button>
-        );
+      label = "Continue";
+      onClickHandler = onClick;
     }
+
+    return (
+      <button
+        type="button"
+        className="gradient-border-button rounded-full px-12 py-2.5 text-base font-medium text-white relative left-6"
+        onClick={onClickHandler}
+        style={buttonStyle}
+        disabled={isDisabled}
+      >
+        <div className="relative right-4 scale-[1.4] font-semibold">{label}</div>
+      </button>
+    );
   };
 
   const getStatusLabel = () => {
@@ -260,17 +235,26 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
           {/* Top Section */}
           <div className="flex items-start justify-between">
             <div className="relative top-0 lg:top-0 md:top-0 left-0 lg:left-8 md:left-0 scale-[0.8] lg:scale-[1.0] md:scale-[0.7]">
-              <h3 className="max-w-[60%] text-xs text-nowrap font-semibold text-white">
+              <h3 className="max-w-[60%] text-base text-nowrap font-semibold text-white flex items-center gap-2 relative right-6">
                 {name}
+                <div className="relative h-4 w-4 shrink-0">
+                  <Image
+                    src={icon}
+                    alt={`${name} icon`}
+                    fill
+                    className="object-contain"
+                    sizes="16px"
+                  />
+                </div>
               </h3>
             </div>
-            <div className="relative top-0 lg:top-0 md:top-0 left-0 lg:-left-6 md:left-0 scale-[0.8] lg:scale-[1.0] md:scale-[0.7]">
+            <div className="relative top-0 lg:top-0 md:top-0 left-0 lg:left-2 md:left-0 scale-[0.8] lg:scale-[1.0] md:scale-[0.7]">
               <Image src="/circle-check.png" alt="Check" width={16} height={16} className="h-6 w-6 text-white" />
             </div>
           </div>
 
           {/* Bottom Section */}
-          <div className="flex items-end justify-start">
+          <div className="flex items-end justify-start relative right-6">
             {getStatusButton()}
           </div>
         </div>

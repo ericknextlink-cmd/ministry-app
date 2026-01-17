@@ -2,7 +2,6 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { DashboardHeader } from "@/components/dashboard-header";
@@ -15,20 +14,7 @@ import { toast } from "sonner";
 import { formatApplicationId } from "@/lib/utils";
 
 import { ProgressTracker } from "@/components/progress-tracker";
-
-// Define the type for an application as returned by the backend
-interface Application {
-  id: number;
-  certificate_type: "electrical" | "building" | "plumbing" | "civil";
-  certificate_class?: string;
-  description?: string;
-  status: "draft" | "submitted" | "pending_payment" | "in_review" | "approved" | "rejected" | "suspended" | "cancelled";
-  current_step: number;
-  expiry_date?: string;
-  user_id: number;
-  created_at: string;
-  updated_at: string;
-}
+import { Application } from "@/lib/types";
 
 function DashboardContent() {
   const router = useRouter();
@@ -89,15 +75,16 @@ function DashboardContent() {
     setIsCreating(true);
     try {
         const newApp = await createApplication({
-            certificate_type: newAppType as any, // Type cast as backend expects specific strings
+            certificate_type: newAppType as Application["certificate_type"],
             description: `New ${newAppType} application` 
         });
         toast.success("Application created successfully!");
         setIsNewAppModalOpen(false);
         setNewAppType("");
         setSelectedApplicationId(newApp.id); // Redirect to details view
-    } catch (err: any) {
-        const errorMessage = err.message || "Failed to create application";
+    } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        const errorMessage = error.message || "Failed to create application";
         
         if (errorMessage.includes("already have an active application")) {
             toast.warning("Active Application Found", {
@@ -256,7 +243,7 @@ function DashboardContent() {
                 {visibleApplications.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-12 text-gray-500">
                         <p>No applications yet.</p>
-                        <p className="text-sm">Click "New Application" to get started.</p>
+                        <p className="text-sm">{`Click "New Application" to get started.`}</p>
                     </div>
                 )}
 
@@ -264,7 +251,7 @@ function DashboardContent() {
                 {activeApplications.length > 0 && (
                     <div className="mt-12 mb-8 space-y-8">
                         {activeApplications.map(app => (
-                            <div key={app.id} className="p-6 bg-white dark:bg-gray-950 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm w-full overflow-x-auto">
+                            <div key={app.id} className="p-6 bg-white dark:bg-gray-950 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm w-full overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                                 <div className="min-w-[600px]">
                                     <ProgressTracker application={app} />
                                 </div>
