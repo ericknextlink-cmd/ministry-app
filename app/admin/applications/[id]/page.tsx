@@ -9,6 +9,7 @@ import { formatApplicationId } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, XCircle, Building, Users, FileText, Mail, Phone, AlertCircle, RefreshCw, Clock } from "lucide-react";
+import { AIAnalysisPanel } from "@/components/admin/ai-analysis-panel";
 
 // Types matching backend AdminApplicationDetails response
 interface CompanyInfo {
@@ -277,6 +278,11 @@ export default function AdminApplicationDetailPage({ params }: { params: Promise
             </Button>
         )}
       </div>
+
+      {/* AI Analysis Panel */}
+      {userToken && (
+        <AIAnalysisPanel applicationId={applicationId} userToken={userToken} />
+      )}
 
       {/* Application Details */}
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 space-y-4">

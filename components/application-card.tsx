@@ -234,7 +234,7 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
         <div className="absolute inset-0 flex flex-col justify-between p-6">
           {/* Top Section */}
           <div className="flex items-start justify-between">
-            <div className="relative top-0 lg:top-0 md:top-0 left-0 lg:left-8 md:left-0 scale-[0.8] lg:scale-[1.0] md:scale-[0.7]">
+            <div className="relative top-0 lg:top-0 md:top-0 left-14 lg:left-8 md:left-10 scale-[1.0] lg:scale-[1.0] md:scale-[0.7]">
               <h3 className="max-w-[60%] text-base text-nowrap font-semibold text-white flex items-center gap-2 relative right-6">
                 {name}
                 <div className="relative h-4 w-4 shrink-0">
@@ -248,13 +248,13 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
                 </div>
               </h3>
             </div>
-            <div className="relative top-0 lg:top-0 md:top-0 left-0 lg:left-2 md:left-0 scale-[0.8] lg:scale-[1.0] md:scale-[0.7]">
+            <div className="relative top-0 lg:top-0 md:top-0 -left-8 lg:left-2 md:left-0 scale-[0.9] lg:scale-[1.0] md:scale-[0.7]">
               <Image src="/circle-check.png" alt="Check" width={16} height={16} className="h-6 w-6 text-white" />
             </div>
           </div>
 
           {/* Bottom Section */}
-          <div className="flex items-end justify-start relative right-6">
+          <div className="flex items-end justify-start relative lg:right-8 md:right-4 right-0">
             {getStatusButton()}
           </div>
         </div>

@@ -356,6 +356,22 @@ export const adminApi = {
     const formData = new FormData();
     formData.append("file", file);
     return api.post<any>("/admin/templates", formData, token);
+  },
+  analyzeApplication: async (applicationId: number, token: string) => {
+    const response = await fetch('/api/analyze-application', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ applicationId, token }),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(errorData.error || 'Failed to analyze application');
+    }
+    
+    return response.json();
   }
 };
 
