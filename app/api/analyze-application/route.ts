@@ -6,6 +6,18 @@ import { adminApi } from '@/lib/api';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+// Handle OPTIONS for CORS preflight
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  });
+}
+
 export async function POST(req: Request) {
   let applicationId: number | undefined;
   try {
@@ -50,38 +62,80 @@ export async function POST(req: Request) {
         analysis: analysisResult,
       });
     } catch (apiError: any) {
-      console.error('Error fetching application details:', apiError);
+      // Check if it's an AnalysisError with userMessage
+      if (apiError.userMessage && apiError.code) {
+        console.error('[Analyze Application API] Analysis error:', {
+          code: apiError.code,
+          message: apiError.message,
+          userMessage: apiError.userMessage,
+          retryable: apiError.retryable,
+          applicationId,
+        });
+        
+        return NextResponse.json(
+          {
+            error: apiError.userMessage,
+            code: apiError.code,
+            retryable: apiError.retryable,
+            details: apiError.message, // For server logs
+          },
+          { status: apiError.retryable ? 500 : 503 }
+        );
+      }
+      
+      // Regular error from API call
+      console.error('[Analyze Application API] Error fetching application details:', {
+        message: apiError.message,
+        stack: apiError.stack,
+        applicationId,
+      });
       return NextResponse.json(
-        { error: apiError.message || 'Failed to fetch application details' },
+        { 
+          error: 'Failed to fetch application details. Please try again.',
+          code: 'API_ERROR',
+          retryable: true,
+        },
         { status: 500 }
       );
     }
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
-    console.error('Analysis API Error:', {
+    
+    // Check if it's an AnalysisError
+    if ('userMessage' in error && 'code' in error) {
+      const analysisError = error as any;
+      console.error('[Analyze Application API] Analysis error:', {
+        code: analysisError.code,
+        message: analysisError.message,
+        userMessage: analysisError.userMessage,
+        retryable: analysisError.retryable,
+        applicationId,
+      });
+      
+      return NextResponse.json(
+        {
+          error: analysisError.userMessage,
+          code: analysisError.code,
+          retryable: analysisError.retryable,
+          details: analysisError.message, // For server logs
+        },
+        { status: analysisError.retryable ? 500 : 503 }
+      );
+    }
+    
+    // Generic error
+    console.error('[Analyze Application API] Unexpected error:', {
       message: error.message,
       stack: error.stack,
       applicationId,
     });
 
-    // Provide more specific error messages based on error type
-    let errorMessage = error.message || 'Failed to analyze application';
-    let errorDetails = 'Please ensure OpenAI API key is configured and try again';
-    
-    if (error.message.includes('API key')) {
-      errorDetails = 'OpenAI API key is missing or invalid. Please configure OPENAI_API_KEY environment variable.';
-    } else if (error.message.includes('timeout')) {
-      errorDetails = 'The analysis request timed out. This may happen with large applications. Please try again.';
-    } else if (error.message.includes('rate limit') || error.message.includes('quota')) {
-      errorDetails = 'OpenAI API rate limit exceeded. Please try again in a few minutes.';
-    } else if (error.message.includes('network') || error.message.includes('fetch')) {
-      errorDetails = 'Network error occurred. Please check your connection and try again.';
-    }
-
     return NextResponse.json(
       {
-        error: errorMessage,
-        details: errorDetails,
+        error: 'An unexpected error occurred during analysis. Please try again or contact support if the issue persists.',
+        code: 'UNKNOWN_ERROR',
+        retryable: true,
+        details: error.message, // For server logs
       },
       { status: 500 }
     );

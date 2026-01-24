@@ -78,12 +78,16 @@ export function AIAnalysisPanel({ applicationId, userToken }: AIAnalysisPanelPro
         setAnalysis(response.analysis);
         toast.success("AI Analysis completed successfully!");
       } else {
-        throw new Error(response.error || 'Analysis failed');
+        // Use user-friendly error message from API
+        const errorMessage = response.error || 'Analysis failed. Please try again.';
+        toast.error(errorMessage);
       }
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      console.error('AI Analysis Error:', err);
-      toast.error(err.message || 'Failed to analyze application. Please ensure OpenAI API key is configured.');
+    } catch (error: any) {
+      // Error is already logged server-side, just show user-friendly message
+      const errorMessage = error?.userMessage || error?.message || 'Failed to analyze application. Please try again.';
+      toast.error(errorMessage, {
+        description: error?.retryable !== false ? 'You can try again in a moment.' : 'Please contact support if this issue persists.',
+      });
     } finally {
       setLoading(false);
     }

@@ -388,27 +388,46 @@ export const adminApi = {
       if (!response.ok) {
         // Handle 405 Method Not Allowed specifically
         if (response.status === 405) {
-          throw new Error('Analysis endpoint is not available. Please ensure the API route is properly configured.');
+          const error: any = new Error('Analysis endpoint is not available. Please ensure the API route is properly configured.');
+          error.userMessage = 'Analysis service is not available. Please contact support.';
+          error.code = 'ENDPOINT_NOT_AVAILABLE';
+          error.retryable = false;
+          throw error;
         }
         
-        let errorData: { error?: string; details?: string } = { error: 'Unknown error' };
+        let errorData: { error?: string; details?: string; code?: string; retryable?: boolean } = { error: 'Unknown error' };
         try {
           errorData = await response.json();
         } catch {
           errorData = { error: `Server error: ${response.status} ${response.statusText}` };
         }
         
-        const errorMessage = errorData.error || errorData.details || 'Failed to analyze application';
-        throw new Error(errorMessage);
+        // Preserve error structure from API
+        const error: any = new Error(errorData.error || errorData.details || 'Failed to analyze application');
+        error.userMessage = errorData.error || 'Failed to analyze application. Please try again.';
+        error.code = errorData.code || 'ANALYSIS_ERROR';
+        error.retryable = errorData.retryable !== false; // Default to retryable unless explicitly false
+        throw error;
       }
       
       return response.json();
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      // Re-throw with more context
-      if (err.message.includes('fetch')) {
-        throw new Error('Network error: Unable to reach the analysis service. Please check your connection and try again.');
+      
+      // If error already has userMessage, preserve it
+      if ('userMessage' in err) {
+        throw err;
       }
+      
+      // Re-throw with more context for network errors
+      if (err.message.includes('fetch')) {
+        const networkError: any = new Error('Network error: Unable to reach the analysis service. Please check your connection and try again.');
+        networkError.userMessage = 'Unable to connect to the analysis service. Please check your connection and try again.';
+        networkError.code = 'NETWORK_ERROR';
+        networkError.retryable = true;
+        throw networkError;
+      }
+      
       throw err;
     }
   }

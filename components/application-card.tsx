@@ -163,12 +163,12 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
     return (
       <button
         type="button"
-        className="gradient-border-button rounded-full px-12 py-2.5 text-base font-medium text-white relative left-6"
+        className="gradient-border-button rounded-full px-4 sm:px-6 md:px-8 lg:px-12 py-2 sm:py-2.5 text-xs sm:text-sm md:text-base font-medium text-white whitespace-nowrap min-w-fit"
         onClick={onClickHandler}
         style={buttonStyle}
         disabled={isDisabled}
       >
-        <div className="relative right-4 scale-[1.4] font-semibold">{label}</div>
+        <span className="font-semibold">{label}</span>
       </button>
     );
   };
@@ -176,39 +176,39 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
   const getStatusLabel = () => {
     if (isSuspended) {
          return (
-          <div className="mt-3 flex items-center gap-2 text-orange-600 dark:text-orange-400 relative left-16">
-            <span className="text-sm font-semibold">Suspended</span>
-            <AlertCircle className="h-4 w-4" /> 
+          <div className="mt-3 flex items-center gap-2 text-orange-600 dark:text-orange-400">
+            <span className="text-xs sm:text-sm font-semibold">Suspended</span>
+            <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" /> 
           </div>
         );
     } else if (isExpired) {
          return (
-          <div className="mt-3 flex items-center gap-2 text-red-600 dark:text-red-400 relative left-16">
-            <span className="text-sm font-semibold">Expired</span>
-            <Image src="/badge-expired.png" alt="Expired" width={16} height={16} className="h-4 w-4" />
+          <div className="mt-3 flex items-center gap-2 text-red-600 dark:text-red-400">
+            <span className="text-xs sm:text-sm font-semibold">Expired</span>
+            <Image src="/badge-expired.png" alt="Expired" width={16} height={16} className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
           </div>
         );
     } else if (isCancelled) {
          return (
-          <div className="mt-3 flex items-center gap-2 text-gray-500 relative left-16">
-            <span className="text-sm font-semibold">Cancelled</span>
-            <AlertCircle className="h-4 w-4" />
+          <div className="mt-3 flex items-center gap-2 text-gray-500">
+            <span className="text-xs sm:text-sm font-semibold">Cancelled</span>
+            <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
           </div>
         );
     } else if (isRejected) {
          return (
-          <div className="mt-3 flex items-center gap-2 text-red-600 relative left-16">
-            <span className="text-sm font-semibold">Rejected</span>
-            <AlertCircle className="h-4 w-4" />
+          <div className="mt-3 flex items-center gap-2 text-red-600">
+            <span className="text-xs sm:text-sm font-semibold">Rejected</span>
+            <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
           </div>
         );
     } else if (isApproved) {
         return null; // Show download certificate instead
     } else {
         return (
-          <div className="mt-3 flex items-center gap-2 text-gray-600 dark:text-gray-400 relative left-16">
-            <span className="text-sm">In process</span>
-            <Image src="/pending.png" alt="Hourglass" width={16} height={16} className="h-4 w-4" />
+          <div className="mt-3 flex items-center gap-2 text-gray-600 dark:text-gray-400">
+            <span className="text-xs sm:text-sm">In process</span>
+            <Image src="/pending.png" alt="Hourglass" width={16} height={16} className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
           </div>
         );
     }
@@ -217,12 +217,12 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
   return (
     <motion.div
       layout
-      className="relative"
+      className="relative w-full"
       whileHover={{ scale: 1.02 }}
       transition={{ duration: 0.2 }}
     >
       {/* Shape Background */}
-      <div className="relative h-[169px] w-full cursor-pointer" onClick={!isApproved ? onClick : undefined}>
+      <div className="relative h-[140px] sm:h-[160px] md:h-[169px] w-full cursor-pointer" onClick={!isApproved ? onClick : undefined}>
         <Image
           src={shape}
           alt={name}
@@ -231,62 +231,71 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
         />
 
         {/* Content Overlay */}
-        <div className="absolute inset-0 flex flex-col justify-between p-6">
+        <div className="absolute inset-0 flex flex-col justify-between p-4 sm:p-5 md:p-6">
           {/* Top Section */}
-          <div className="flex items-start justify-between">
-            <div className="relative top-0 lg:top-0 md:top-0 left-14 lg:left-8 md:left-10 scale-[1.0] lg:scale-[1.0] md:scale-[0.7]">
-              <h3 className="max-w-[60%] text-base text-nowrap font-semibold text-white flex items-center gap-2 relative right-6">
-                {name}
-                <div className="relative h-4 w-4 shrink-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm sm:text-base md:text-lg font-semibold text-white flex items-center gap-1.5 sm:gap-2 truncate">
+                <span className="truncate">{name}</span>
+                <div className="relative h-3 w-3 sm:h-4 sm:w-4 shrink-0">
                   <Image
                     src={icon}
                     alt={`${name} icon`}
                     fill
                     className="object-contain"
-                    sizes="16px"
+                    sizes="(max-width: 640px) 12px, 16px"
                   />
                 </div>
               </h3>
             </div>
-            <div className="relative top-0 lg:top-0 md:top-0 -left-8 lg:left-2 md:left-0 scale-[0.9] lg:scale-[1.0] md:scale-[0.7]">
-              <Image src="/circle-check.png" alt="Check" width={16} height={16} className="h-6 w-6 text-white" />
+            <div className="shrink-0">
+              <Image 
+                src="/circle-check.png" 
+                alt="Check" 
+                width={16} 
+                height={16} 
+                className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" 
+              />
             </div>
           </div>
 
           {/* Bottom Section */}
-          <div className="flex items-end justify-start relative lg:right-8 md:right-4 right-0">
+          <div className="flex items-end justify-start w-full">
             {getStatusButton()}
           </div>
         </div>
       </div>
 
       {/* Status or Download Certificate */}
-      {isApproved && !isExpired ? (
-        <button 
-            type="button"
-            className="mt-3 flex items-center gap-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors relative left-12 disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={handleDownloadCertificate} 
-            disabled={isDownloading}
-        >
-          {isDownloading ? (
-            <Loader2 className="h-6 w-6 shrink-0 animate-spin" />
-          ) : (
-            <div className="relative h-6 w-6 shrink-0">
-                <Image
-                src="/certificate.png"
-                alt="Certificate"
-                fill
-                className="object-contain"
-                />
-            </div>
-          )}
-          <span className="text-sm font-medium">
-            {isDownloading ? "Preparing..." : "Download Certificate"}
-          </span>
-        </button>
-      ) : (
-        getStatusLabel()
-      )}
+      <div className="mt-2 sm:mt-3 px-2 sm:px-0">
+        {isApproved && !isExpired ? (
+          <button 
+              type="button"
+              className="flex items-center gap-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleDownloadCertificate} 
+              disabled={isDownloading}
+          >
+            {isDownloading ? (
+              <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 shrink-0 animate-spin" />
+            ) : (
+              <div className="relative h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 shrink-0">
+                  <Image
+                  src="/certificate.png"
+                  alt="Certificate"
+                  fill
+                  className="object-contain"
+                  sizes="(max-width: 640px) 16px, (max-width: 768px) 20px, 24px"
+                  />
+              </div>
+            )}
+            <span className="text-xs sm:text-sm font-medium">
+              {isDownloading ? "Preparing..." : "Download Certificate"}
+            </span>
+          </button>
+        ) : (
+          getStatusLabel()
+        )}
+      </div>
     </motion.div>
   );
 }

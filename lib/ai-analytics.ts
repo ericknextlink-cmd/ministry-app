@@ -2,7 +2,66 @@ import { ChatOpenAI } from '@langchain/openai';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { PDFParse } from 'pdf-parse';
+import { getSystemPrompt, getHumanMessage, getTrainingFallback, replaceTemplateVariables } from './prompts/config';
+
+// Configure pdfjs-dist to use Node.js mode (not browser mode)
+// This prevents DOMMatrix, ImageData, and Path2D errors in serverless environments
+if (typeof global !== 'undefined' && typeof process !== 'undefined') {
+  // Set environment variables to disable browser-specific features
+  process.env.PDFJS_DISABLE_AUTOTUNE = 'true';
+  process.env.PDFJS_SKIP_BABEL = 'true';
+  // Disable canvas rendering which requires browser APIs
+  process.env.PDFJS_DISABLE_CANVAS = 'true';
+  
+  // Polyfill missing browser APIs that pdfjs-dist might try to use
+  if (typeof global.DOMMatrix === 'undefined') {
+    (global as any).DOMMatrix = class DOMMatrix {
+      constructor() {}
+    };
+  }
+  if (typeof global.ImageData === 'undefined') {
+    (global as any).ImageData = class ImageData {
+      constructor() {}
+    };
+  }
+  if (typeof global.Path2D === 'undefined') {
+    (global as any).Path2D = class Path2D {
+      constructor() {}
+    };
+  }
+}
+
+// Dynamic import to avoid loading pdfjs-dist in browser contexts
+// This prevents DOMMatrix errors in serverless environments
+let PDFParseClass: any;
+async function getPDFParser() {
+  if (!PDFParseClass) {
+    // Only import in Node.js environment
+    if (typeof window === 'undefined') {
+      try {
+        // Use dynamic import to avoid loading browser-specific code at module level
+        const pdfParseModule = await import('pdf-parse');
+        // pdf-parse exports PDFParse as a class
+        PDFParseClass = pdfParseModule.PDFParse || pdfParseModule.default?.PDFParse || pdfParseModule.default;
+        if (!PDFParseClass) {
+          console.error('[AI Analytics] PDFParse class not found in pdf-parse module');
+          return null;
+        }
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        console.error('[AI Analytics] Failed to import pdf-parse:', {
+          message: error.message,
+          stack: error.stack,
+        });
+        return null;
+      }
+    } else {
+      console.error('[AI Analytics] PDF parsing is only available in server-side environments');
+      return null;
+    }
+  }
+  return PDFParseClass;
+}
 
 interface ApplicationData {
   id: number;
@@ -31,7 +90,7 @@ interface ApplicationData {
   }>;
 }
 
-interface AnalysisResult {
+export interface AnalysisResult {
   verdict: 'approve' | 'reject' | 'needs_review';
   confidence: number;
   summary: string;
@@ -62,22 +121,53 @@ interface AnalysisResult {
   recommendations: string[];
 }
 
+export interface AnalysisError {
+  message: string;
+  userMessage: string;
+  code: string;
+  retryable: boolean;
+}
+
 let analyticsModel: ChatOpenAI | null = null;
 
 function getAnalyticsModel(): ChatOpenAI | null {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
+    console.error('[AI Analytics] OpenAI API key not configured');
     return null;
   }
   
   if (!analyticsModel) {
-    analyticsModel = new ChatOpenAI({
-      modelName: 'gpt-4o', // Using GPT-4 for better analysis
-      temperature: 0.3, // Lower temperature for more consistent analysis
-      openAIApiKey: apiKey,
-    });
+    try {
+      analyticsModel = new ChatOpenAI({
+        modelName: 'gpt-4o', // Using GPT-4 for better analysis
+        temperature: 0.3, // Lower temperature for more consistent analysis
+        openAIApiKey: apiKey,
+      });
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('[AI Analytics] Failed to initialize OpenAI model:', {
+        message: error.message,
+        stack: error.stack,
+      });
+      return null;
+    }
   }
   return analyticsModel;
+}
+
+function createError(
+  message: string,
+  userMessage: string,
+  code: string,
+  retryable: boolean = true
+): AnalysisError {
+  return {
+    message,
+    userMessage,
+    code,
+    retryable,
+  };
 }
 
 async function loadTrainingDocuments(): Promise<string> {
@@ -93,13 +183,13 @@ async function loadTrainingDocuments(): Promise<string> {
     } catch (dirError) {
       // In production, this might fail due to read-only file system
       // Return a generic training message instead
-      console.warn('Training documents directory not accessible:', form3Dir);
-      return 'Training examples: Valid applications should include complete company information, director details, and required certificates (Form 3, incorporation certificate, commencement certificate, tax clearance, SSNIT clearance).';
+      console.warn('[AI Analytics] Training documents directory not accessible:', form3Dir);
+      return getTrainingFallback();
     }
     
     if (files.length === 0) {
-      console.warn('No PDF training documents found in form3 directory');
-      return 'Training examples: Valid applications should include complete company information, director details, and required certificates (Form 3, incorporation certificate, commencement certificate, tax clearance, SSNIT clearance).';
+      console.warn('[AI Analytics] No PDF training documents found in form3 directory');
+      return getTrainingFallback();
     }
     
     const trainingData: string[] = [];
@@ -111,40 +201,58 @@ async function loadTrainingDocuments(): Promise<string> {
         
         // Add timeout protection for PDF parsing
         const parsePromise = (async () => {
-          const parser = new PDFParse({ data: dataBuffer });
-          const pdfData = await parser.getText();
-          return pdfData.text.trim();
+          const PDFParser = await getPDFParser();
+          if (!PDFParser) {
+            return '';
+          }
+          try {
+            const parser = new PDFParser({ data: dataBuffer });
+            const pdfData = await parser.getText();
+            return pdfData.text.trim();
+          } catch (parseErr) {
+            const error = parseErr instanceof Error ? parseErr : new Error(String(parseErr));
+            console.warn(`[AI Analytics] Failed to parse PDF ${file}:`, error.message);
+            return '';
+          }
         })();
         
         const timeoutPromise = new Promise<string>((_, reject) => {
           setTimeout(() => reject(new Error('PDF parsing timeout')), 10000); // 10 second timeout per file
         });
         
-        const text = await Promise.race([parsePromise, timeoutPromise]);
-        
-        if (text && text.length > 0) {
-          // Remove filename from training data to avoid AI focusing on reference numbers
-          // Just include the content structure and information
-          trainingData.push(`\n--- Example Form 3 Application (Training Example) ---\n${text.substring(0, 2000)}`); // Limit text per file
+        try {
+          const text = await Promise.race([parsePromise, timeoutPromise]);
+          
+          if (text && text.length > 0) {
+            // Remove filename from training data to avoid AI focusing on reference numbers
+            // Just include the content structure and information
+            trainingData.push(`\n--- Example Form 3 Application (Training Example) ---\n${text.substring(0, 2000)}`); // Limit text per file
+          }
+        } catch (timeoutErr) {
+          console.warn(`[AI Analytics] PDF parsing timeout for ${file}`);
+          // Continue with other files
         }
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
         // Log but continue with other files
-        console.warn(`Failed to parse training PDF ${file}:`, error.message);
+        console.warn(`[AI Analytics] Failed to process training PDF ${file}:`, error.message);
         // Don't throw - continue processing other files
       }
     }
     
     if (trainingData.length === 0) {
-      return 'Training examples: Valid applications should include complete company information, director details, and required certificates (Form 3, incorporation certificate, commencement certificate, tax clearance, SSNIT clearance).';
+      return getTrainingFallback();
     }
     
     return trainingData.join('\n\n');
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
-    console.error('Error loading training documents:', error);
+    console.error('[AI Analytics] Error loading training documents:', {
+      message: error.message,
+      stack: error.stack,
+    });
     // Return a fallback training message instead of failing completely
-    return 'Training examples: Valid applications should include complete company information, director details, and required certificates (Form 3, incorporation certificate, commencement certificate, tax clearance, SSNIT clearance).';
+    return getTrainingFallback();
   }
 }
 
@@ -170,7 +278,7 @@ async function analyzeDocument(fileUrl: string, documentType: string, userToken?
       headers['Authorization'] = `Bearer ${userToken}`;
     }
     
-    console.log('Fetching document from URL:', fullUrl);
+    console.log('[AI Analytics] Fetching document from URL:', fullUrl);
     
     // Create abort controller for timeout
     const controller = new AbortController();
@@ -184,6 +292,7 @@ async function analyzeDocument(fileUrl: string, documentType: string, userToken?
     clearTimeout(timeoutId);
     
     if (!response.ok) {
+      console.warn(`[AI Analytics] Document fetch failed: ${response.status} ${response.statusText}`);
       return `Unable to fetch document from URL (${response.status}): ${response.statusText}`;
     }
     
@@ -193,6 +302,7 @@ async function analyzeDocument(fileUrl: string, documentType: string, userToken?
         !contentType.includes('pdf') && 
         !contentType.includes('application/octet-stream') &&
         !contentType.includes('application/pdf')) {
+      console.warn(`[AI Analytics] Document is not a PDF: ${contentType}`);
       return `Document is not a PDF file (Content-Type: ${contentType}). Only PDF documents can be analyzed.`;
     }
     
@@ -201,21 +311,40 @@ async function analyzeDocument(fileUrl: string, documentType: string, userToken?
     
     // Check if buffer is empty
     if (buffer.length === 0) {
+      console.warn('[AI Analytics] Document buffer is empty');
       return 'Document file is empty or could not be downloaded.';
     }
     
-    const parser = new PDFParse({ data: buffer });
-    const pdfData = await parser.getText();
-    const text = pdfData.text.trim();
-    
-    if (text.length === 0) {
-      return 'Document appears to be empty or contains no extractable text.';
+    const PDFParser = await getPDFParser();
+    if (!PDFParser) {
+      console.error('[AI Analytics] PDF parser not available');
+      return 'PDF parsing library is not available. Please contact support.';
     }
     
-    return text.substring(0, 5000); // Limit text length
+    try {
+      const parser = new PDFParser({ data: buffer });
+      const pdfData = await parser.getText();
+      const text = pdfData.text.trim();
+      
+      if (text.length === 0) {
+        console.warn('[AI Analytics] Document appears to be empty or contains no extractable text');
+        return 'Document appears to be empty or contains no extractable text.';
+      }
+      
+      return text.substring(0, 5000); // Limit text length
+    } catch (parseErr) {
+      const error = parseErr instanceof Error ? parseErr : new Error(String(parseErr));
+      console.error('[AI Analytics] PDF parsing error:', {
+        fileUrl,
+        documentType,
+        error: error.message,
+        stack: error.stack,
+      });
+      return `Error parsing PDF document: ${error.message}`;
+    }
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
-    console.error('Document analysis error:', {
+    console.error('[AI Analytics] Document analysis error:', {
       fileUrl,
       documentType,
       error: error.message,
@@ -245,8 +374,14 @@ export async function analyzeApplication(
   if (!model) {
     const errorMsg = process.env.OPENAI_API_KEY 
       ? 'OpenAI API key is invalid or expired'
-      : 'OpenAI API key not configured. Please set OPENAI_API_KEY environment variable.';
-    throw new Error(errorMsg);
+      : 'OpenAI API key not configured';
+    console.error('[AI Analytics] Model initialization failed:', errorMsg);
+    throw createError(
+      errorMsg,
+      'AI analysis service is not available. Please contact support or try again later.',
+      'MODEL_INIT_ERROR',
+      false
+    );
   }
 
   // Load training data with error handling
@@ -254,8 +389,12 @@ export async function analyzeApplication(
   try {
     trainingData = await loadTrainingDocuments();
   } catch (err) {
-    console.error('Failed to load training documents, using fallback:', err);
-    trainingData = 'Training examples: Valid applications should include complete company information, director details, and required certificates.';
+    const error = err instanceof Error ? err : new Error(String(err));
+    console.error('[AI Analytics] Failed to load training documents, using fallback:', {
+      message: error.message,
+      stack: error.stack,
+    });
+    trainingData = getTrainingFallback();
   }
   
   const applicationSummary = `
@@ -293,7 +432,10 @@ ${applicationData.documents.map(d => `- ${d.filename} (${d.document_type})`).joi
         return `\n--- Document: ${doc.filename} (${doc.document_type}) ---\n${content.substring(0, 2000)}`;
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
-        console.error(`Failed to analyze document ${doc.filename}:`, error.message);
+        console.error(`[AI Analytics] Failed to analyze document ${doc.filename}:`, {
+          message: error.message,
+          stack: error.stack,
+        });
         return `\n--- Document: ${doc.filename} (${doc.document_type}) ---\n[Error: Could not analyze this document - ${error.message}]`;
       }
     });
@@ -306,91 +448,51 @@ ${applicationData.documents.map(d => `- ${d.filename} (${d.document_type})`).joi
             return result.value;
           } else {
             const doc = applicationData.documents[index];
-            console.error(`Document analysis failed for ${doc?.filename}:`, result.reason);
+            console.error(`[AI Analytics] Document analysis failed for ${doc?.filename}:`, {
+              reason: result.reason,
+            });
             return `\n--- Document: ${doc?.filename || 'Unknown'} ---\n[Error: Document analysis failed]`;
           }
         })
         .join('\n\n');
     } catch (err) {
-      console.error('Error processing documents:', err);
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('[AI Analytics] Error processing documents:', {
+        message: error.message,
+        stack: error.stack,
+      });
       documentAnalyses = 'Some documents could not be analyzed. Please review documents manually.';
     }
   }
 
-  const systemPrompt = `You are an expert application reviewer for the Ministry of Works, Housing & Water Resources (MWHWR) in Ghana. 
-Your task is to analyze contractor classification certificate applications and provide a comprehensive review.
-
-TRAINING DATA (Examples of valid applications - IGNORE reference numbers, file names, or IDs in filenames):
-${trainingData}
-
-IMPORTANT: When analyzing training data:
-- Focus on the STRUCTURE, CONTENT, and INFORMATION QUALITY of the documents
-- IGNORE reference numbers, application IDs, or file names (e.g., "829", "773", etc.)
-- Learn the PATTERNS of required information, formatting, and completeness
-- Understand what constitutes a properly filled Form 3 based on CONTENT, not identifiers
-
-APPLICATION TO REVIEW:
-${applicationSummary}
-
-DOCUMENT CONTENTS:
-${documentAnalyses || 'No documents provided'}
-
-ANALYSIS REQUIREMENTS:
-1. Review the application against MWHWR standards and the training examples provided
-2. Focus on CONTENT QUALITY and STRUCTURE, not reference numbers or IDs
-3. Check completeness of:
-   - Company information (name, registration, address, contact details)
-   - Directors information (minimum requirements, completeness)
-   - Required documents (Form 3, certificates, registration documents, etc.)
-4. Verify document authenticity and compliance with training examples based on CONTENT STRUCTURE
-5. Check for any inconsistencies or red flags in the INFORMATION provided
-6. Assess overall compliance with ministry requirements based on SUBSTANCE, not identifiers
-
-OUTPUT FORMAT (JSON):
-{
-  "verdict": "approve" | "reject" | "needs_review",
-  "confidence": 0-100,
-  "summary": "Brief 2-3 sentence summary of your assessment",
-  "detailedReport": {
-    "companyInfo": {
-      "status": "complete" | "incomplete" | "issues",
-      "findings": ["finding1", "finding2", ...]
-    },
-    "directors": {
-      "status": "complete" | "incomplete" | "issues",
-      "findings": ["finding1", "finding2", ...]
-    },
-    "documents": {
-      "status": "complete" | "incomplete" | "issues",
-      "findings": ["finding1", "finding2", ...],
-      "documentAnalysis": [
-        {
-          "filename": "doc.pdf",
-          "documentType": "form_3",
-          "status": "valid" | "invalid" | "needs_review",
-          "findings": ["finding1", ...]
-        }
-      ]
-    },
-    "compliance": {
-      "status": "compliant" | "non_compliant" | "partial",
-      "findings": ["finding1", "finding2", ...]
+  // Load and format system prompt
+  let systemPrompt: string;
+  try {
+    const promptTemplate = getSystemPrompt();
+    if (!promptTemplate) {
+      console.warn('[AI Analytics] System prompt template not found, using fallback');
+      systemPrompt = getTrainingFallback();
+    } else {
+      systemPrompt = replaceTemplateVariables(promptTemplate, {
+        TRAINING_DATA: trainingData,
+        APPLICATION_SUMMARY: applicationSummary,
+        DOCUMENT_ANALYSES: documentAnalyses || 'No documents provided',
+      });
     }
-  },
-  "recommendations": ["recommendation1", "recommendation2", ...]
-}
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    console.error('[AI Analytics] Failed to load system prompt:', {
+      message: error.message,
+      stack: error.stack,
+    });
+    systemPrompt = getTrainingFallback();
+  }
 
-IMPORTANT:
-- Be thorough but fair
-- Base your analysis on the training examples provided
-- Flag any discrepancies or missing information
-- Provide actionable recommendations
-- The verdict should reflect overall application quality, not just completeness
-- "needs_review" means the application requires human review for clarification`;
+  const humanMessage = getHumanMessage() || 'Please analyze this application and provide your assessment in the specified JSON format.';
 
   const messages = [
     new SystemMessage(systemPrompt),
-    new HumanMessage('Please analyze this application and provide your assessment in the specified JSON format.'),
+    new HumanMessage(humanMessage),
   ];
 
   try {
@@ -404,7 +506,13 @@ IMPORTANT:
     const content = response.content as string;
     
     if (!content || typeof content !== 'string') {
-      throw new Error('AI returned empty or invalid response');
+      console.error('[AI Analytics] AI returned empty or invalid response');
+      throw createError(
+        'AI returned empty or invalid response',
+        'The AI analysis service returned an invalid response. Please try again.',
+        'INVALID_RESPONSE',
+        true
+      );
     }
     
     let analysisResult: AnalysisResult;
@@ -415,12 +523,24 @@ IMPORTANT:
       if (jsonMatch) {
         analysisResult = JSON.parse(jsonMatch[0]);
       } else {
-        throw new Error('No JSON found in response');
+        console.error('[AI Analytics] No JSON found in AI response');
+        throw createError(
+          'No JSON found in response',
+          'The AI analysis service returned an unexpected format. Please try again.',
+          'INVALID_JSON',
+          true
+        );
       }
       
       // Validate the result structure
       if (!analysisResult.verdict || !analysisResult.summary) {
-        throw new Error('AI response missing required fields');
+        console.error('[AI Analytics] AI response missing required fields');
+        throw createError(
+          'AI response missing required fields',
+          'The AI analysis service returned incomplete data. Please try again.',
+          'INCOMPLETE_RESPONSE',
+          true
+        );
       }
       
       // Ensure confidence is a number
@@ -430,17 +550,39 @@ IMPORTANT:
       
     } catch (parseError) {
       const parseErr = parseError instanceof Error ? parseError : new Error(String(parseError));
-      console.error('Failed to parse AI response as JSON:', {
+      
+      // Check if it's already an AnalysisError
+      if ('code' in parseErr && 'userMessage' in parseErr) {
+        throw parseErr;
+      }
+      
+      console.error('[AI Analytics] Failed to parse AI response as JSON:', {
         error: parseErr.message,
-        responsePreview: content.substring(0, 500)
+        responsePreview: content.substring(0, 500),
       });
-      throw new Error(`AI returned invalid response format: ${parseErr.message}`);
+      throw createError(
+        `AI returned invalid response format: ${parseErr.message}`,
+        'The AI analysis service returned data in an unexpected format. Please try again.',
+        'PARSE_ERROR',
+        true
+      );
     }
 
     return analysisResult;
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
-    console.error('AI Analysis Error:', {
+    
+    // Check if it's already an AnalysisError
+    if ('code' in error && 'userMessage' in error) {
+      console.error('[AI Analytics] Analysis error:', {
+        code: (error as any).code,
+        message: error.message,
+        retryable: (error as any).retryable,
+      });
+      throw error;
+    }
+    
+    console.error('[AI Analytics] AI Analysis Error:', {
       message: error.message,
       stack: error.stack,
       applicationId: applicationData.id
@@ -448,15 +590,36 @@ IMPORTANT:
     
     // Provide more specific error messages
     if (error.message.includes('timeout')) {
-      throw new Error('Analysis timed out. The request took too long to process. Please try again or contact support.');
+      throw createError(
+        'Analysis timed out',
+        'The analysis request took too long to process. Please try again.',
+        'TIMEOUT',
+        true
+      );
     }
     if (error.message.includes('API key') || error.message.includes('authentication')) {
-      throw new Error('OpenAI API authentication failed. Please check API key configuration.');
+      throw createError(
+        'OpenAI API authentication failed',
+        'AI analysis service authentication failed. Please contact support.',
+        'AUTH_ERROR',
+        false
+      );
     }
     if (error.message.includes('rate limit') || error.message.includes('quota')) {
-      throw new Error('OpenAI API rate limit exceeded. Please try again later.');
+      throw createError(
+        'OpenAI API rate limit exceeded',
+        'The AI analysis service is currently busy. Please try again in a few minutes.',
+        'RATE_LIMIT',
+        true
+      );
     }
     
-    throw error;
+    // Generic error
+    throw createError(
+      error.message || 'Failed to analyze application',
+      'An unexpected error occurred during analysis. Please try again or contact support if the issue persists.',
+      'UNKNOWN_ERROR',
+      true
+    );
   }
 }

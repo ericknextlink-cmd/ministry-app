@@ -1,0 +1,1 @@
+Training examples: Valid applications should include complete company information, director details, and required certificates (Form 3, incorporation certificate, commencement certificate, tax clearance, SSNIT clearance).
