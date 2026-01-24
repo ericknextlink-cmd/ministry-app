@@ -41,8 +41,23 @@ async function getPDFParser() {
       try {
         // Use dynamic import to avoid loading browser-specific code at module level
         const pdfParseModule = await import('pdf-parse');
-        // pdf-parse exports PDFParse as a class
-        PDFParseClass = pdfParseModule.PDFParse || pdfParseModule.default?.PDFParse || pdfParseModule.default;
+        // pdf-parse exports PDFParse as a named export
+        // Handle different export patterns with proper type checking
+        if ('PDFParse' in pdfParseModule && typeof pdfParseModule.PDFParse === 'function') {
+          PDFParseClass = pdfParseModule.PDFParse;
+        } else {
+          // Check for default export (using type assertion to avoid TypeScript error)
+          const moduleAny = pdfParseModule as any;
+          if (moduleAny.default) {
+            const defaultExport = moduleAny.default;
+            if (typeof defaultExport === 'function') {
+              PDFParseClass = defaultExport;
+            } else if (defaultExport && typeof defaultExport === 'object' && 'PDFParse' in defaultExport) {
+              PDFParseClass = defaultExport.PDFParse;
+            }
+          }
+        }
+        
         if (!PDFParseClass) {
           console.error('[AI Analytics] PDFParse class not found in pdf-parse module');
           return null;
