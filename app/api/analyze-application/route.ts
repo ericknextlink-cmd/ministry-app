@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { analyzeApplication } from '@/lib/ai-analytics';
 import { adminApi } from '@/lib/api';
 
+// Explicitly export route config to ensure POST is allowed
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function POST(req: Request) {
   let applicationId: number | undefined;
   try {

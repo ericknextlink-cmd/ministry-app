@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, XCircle, Building, Users, FileText, Mail, Phone, AlertCircle, RefreshCw, Clock } from "lucide-react";
 import { AIAnalysisPanel } from "@/components/admin/ai-analysis-panel";
+import { PDFViewerModal } from "@/components/admin/pdf-viewer-modal";
 
 // Types matching backend AdminApplicationDetails response
 interface CompanyInfo {
@@ -69,6 +70,8 @@ export default function AdminApplicationDetailPage({ params }: { params: Promise
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
+  const [selectedDocumentIndex, setSelectedDocumentIndex] = useState(0);
 
   const applicationId = parseInt(id);
 
@@ -341,24 +344,29 @@ export default function AdminApplicationDetailPage({ params }: { params: Promise
                           </div>
                           <Button 
                               variant="outline" 
-                              size="sm" 
-                              asChild
+                              size="sm"
+                              onClick={() => {
+                                  const index = applicationDetails.documents.findIndex(d => d.id === doc.id);
+                                  setSelectedDocumentIndex(index >= 0 ? index : 0);
+                                  setPdfViewerOpen(true);
+                              }}
                           >
-                              {/* External signed URL from Supabase - must use <a> tag for external resources with target="_blank" */}
-                              <a 
-                                  href={doc.file_url.startsWith('http://') || doc.file_url.startsWith('https://') 
-                                      ? doc.file_url 
-                                      : `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'}/${doc.file_url}`} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                              >
-                                  View
-                              </a>
+                              View
                           </Button>
                       </div>
                   ))}
               </div>
           </div>
+      )}
+
+      {/* PDF Viewer Modal */}
+      {applicationDetails.documents && applicationDetails.documents.length > 0 && (
+        <PDFViewerModal
+          isOpen={pdfViewerOpen}
+          onClose={() => setPdfViewerOpen(false)}
+          documents={applicationDetails.documents}
+          initialIndex={selectedDocumentIndex}
+        />
       )}
     </div>
   );

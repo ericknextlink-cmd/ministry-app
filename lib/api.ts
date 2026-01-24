@@ -376,20 +376,41 @@ export const adminApi = {
     return api.post<any>("/admin/templates", formData, token);
   },
   analyzeApplication: async (applicationId: number, token: string) => {
-    const response = await fetch('/api/analyze-application', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ applicationId, token }),
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      throw new Error(errorData.error || 'Failed to analyze application');
+    try {
+      const response = await fetch('/api/analyze-application', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ applicationId, token }),
+      });
+      
+      if (!response.ok) {
+        // Handle 405 Method Not Allowed specifically
+        if (response.status === 405) {
+          throw new Error('Analysis endpoint is not available. Please ensure the API route is properly configured.');
+        }
+        
+        let errorData: { error?: string; details?: string } = { error: 'Unknown error' };
+        try {
+          errorData = await response.json();
+        } catch {
+          errorData = { error: `Server error: ${response.status} ${response.statusText}` };
+        }
+        
+        const errorMessage = errorData.error || errorData.details || 'Failed to analyze application';
+        throw new Error(errorMessage);
+      }
+      
+      return response.json();
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      // Re-throw with more context
+      if (err.message.includes('fetch')) {
+        throw new Error('Network error: Unable to reach the analysis service. Please check your connection and try again.');
+      }
+      throw err;
     }
-    
-    return response.json();
   }
 };
 
