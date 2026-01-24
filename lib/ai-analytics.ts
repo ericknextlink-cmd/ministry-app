@@ -4,80 +4,6 @@ import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { getSystemPrompt, getHumanMessage, getTrainingFallback, replaceTemplateVariables } from './prompts/config';
 
-// Configure pdfjs-dist to use Node.js mode (not browser mode)
-// This prevents DOMMatrix, ImageData, and Path2D errors in serverless environments
-if (typeof global !== 'undefined' && typeof process !== 'undefined') {
-  // Set environment variables to disable browser-specific features
-  process.env.PDFJS_DISABLE_AUTOTUNE = 'true';
-  process.env.PDFJS_SKIP_BABEL = 'true';
-  // Disable canvas rendering which requires browser APIs
-  process.env.PDFJS_DISABLE_CANVAS = 'true';
-  
-  // Polyfill missing browser APIs that pdfjs-dist might try to use
-  if (typeof global.DOMMatrix === 'undefined') {
-    (global as any).DOMMatrix = class DOMMatrix {
-      constructor() {}
-    };
-  }
-  if (typeof global.ImageData === 'undefined') {
-    (global as any).ImageData = class ImageData {
-      constructor() {}
-    };
-  }
-  if (typeof global.Path2D === 'undefined') {
-    (global as any).Path2D = class Path2D {
-      constructor() {}
-    };
-  }
-}
-
-// Dynamic import to avoid loading pdfjs-dist in browser contexts
-// This prevents DOMMatrix errors in serverless environments
-let PDFParseClass: any;
-async function getPDFParser() {
-  if (!PDFParseClass) {
-    // Only import in Node.js environment
-    if (typeof window === 'undefined') {
-      try {
-        // Use dynamic import to avoid loading browser-specific code at module level
-        const pdfParseModule = await import('pdf-parse');
-        // pdf-parse exports PDFParse as a named export
-        // Handle different export patterns with proper type checking
-        if ('PDFParse' in pdfParseModule && typeof pdfParseModule.PDFParse === 'function') {
-          PDFParseClass = pdfParseModule.PDFParse;
-        } else {
-          // Check for default export (using type assertion to avoid TypeScript error)
-          const moduleAny = pdfParseModule as any;
-          if (moduleAny.default) {
-            const defaultExport = moduleAny.default;
-            if (typeof defaultExport === 'function') {
-              PDFParseClass = defaultExport;
-            } else if (defaultExport && typeof defaultExport === 'object' && 'PDFParse' in defaultExport) {
-              PDFParseClass = defaultExport.PDFParse;
-            }
-          }
-        }
-        
-        if (!PDFParseClass) {
-          console.error('[AI Analytics] PDFParse class not found in pdf-parse module');
-          return null;
-        }
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
-        console.error('[AI Analytics] Failed to import pdf-parse:', {
-          message: error.message,
-          stack: error.stack,
-        });
-        return null;
-      }
-    } else {
-      console.error('[AI Analytics] PDF parsing is only available in server-side environments');
-      return null;
-    }
-  }
-  return PDFParseClass;
-}
-
 interface ApplicationData {
   id: number;
   certificate_type: string;
@@ -216,13 +142,12 @@ async function loadTrainingDocuments(): Promise<string> {
         
         // Add timeout protection for PDF parsing
         const parsePromise = (async () => {
-          const PDFParser = await getPDFParser();
-          if (!PDFParser) {
-            return '';
-          }
           try {
-            const parser = new PDFParser({ data: dataBuffer });
-            const pdfData = await parser.getText();
+            // Use pdf-parse for training documents (simpler and more reliable)
+            const pdfParseModule = await import('pdf-parse');
+            const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+            const dataBuffer = readFileSync(filePath);
+            const pdfData = await (typeof pdfParse === 'function' ? pdfParse(dataBuffer) : pdfParse.default(dataBuffer));
             return pdfData.text.trim();
           } catch (parseErr) {
             const error = parseErr instanceof Error ? parseErr : new Error(String(parseErr));
@@ -321,32 +246,100 @@ async function analyzeDocument(fileUrl: string, documentType: string, userToken?
       return `Document is not a PDF file (Content-Type: ${contentType}). Only PDF documents can be analyzed.`;
     }
     
+    // Fetch PDF bytes from Supabase signed URL
     const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const pdfBytes = new Uint8Array(arrayBuffer);
     
     // Check if buffer is empty
-    if (buffer.length === 0) {
+    if (pdfBytes.length === 0) {
       console.warn('[AI Analytics] Document buffer is empty');
       return 'Document file is empty or could not be downloaded.';
     }
     
-    const PDFParser = await getPDFParser();
-    if (!PDFParser) {
-      console.error('[AI Analytics] PDF parser not available');
-      return 'PDF parsing library is not available. Please contact support.';
-    }
-    
+    // Parse PDF directly from bytes using pdf-parse (simpler and more reliable for URLs)
     try {
-      const parser = new PDFParser({ data: buffer });
-      const pdfData = await parser.getText();
-      const text = pdfData.text.trim();
+      // Use pdf-parse directly for URL-based PDFs (handles Uint8Array natively)
+      const pdfParseModule = await import('pdf-parse');
+      // pdf-parse exports as default function or named export
+      const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+      const pdfBuffer = Buffer.from(pdfBytes);
       
-      if (text.length === 0) {
+      // pdf-parse is a function that takes a buffer
+      const pdfData = await (typeof pdfParse === 'function' ? pdfParse(pdfBuffer) : pdfParse.default(pdfBuffer));
+      const rawText = pdfData.text.trim();
+      
+      if (rawText.length === 0) {
         console.warn('[AI Analytics] Document appears to be empty or contains no extractable text');
         return 'Document appears to be empty or contains no extractable text.';
       }
       
-      return text.substring(0, 5000); // Limit text length
+      // For RAG: Create Document, split, embed, and store in vector store
+      // This enables semantic search and better context retrieval
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        console.warn('[AI Analytics] OpenAI API key not configured, using simple text extraction');
+        return rawText.substring(0, 5000); // Limit text length
+      }
+      
+      try {
+        // Dynamically import LangChain modules for RAG
+        const { Document } = await import('@langchain/core/documents');
+        const { RecursiveCharacterTextSplitter } = await import('@langchain/textsplitters');
+        const { OpenAIEmbeddings } = await import('@langchain/openai');
+        // Create Document from parsed text
+        const docs = [new Document({ 
+          pageContent: rawText, 
+          metadata: { source: fileUrl, documentType } 
+        })];
+        
+        // Split document into chunks for better retrieval
+        const splitter = new RecursiveCharacterTextSplitter({
+          chunkSize: 1000,
+          chunkOverlap: 200,
+        });
+        
+        const splits = await splitter.splitDocuments(docs);
+        
+        // Create embeddings and vector store for semantic search
+        const embeddings = new OpenAIEmbeddings({
+          openAIApiKey: apiKey,
+        });
+        
+        // Use FaissStore from @langchain/community (already installed, per LangChain docs)
+        const { FaissStore } = await import('@langchain/community/vectorstores/faiss');
+        const vectorStore = await FaissStore.fromDocuments(splits, embeddings);
+        const retriever = vectorStore.asRetriever({ 
+          k: 4 // Retrieve top 4 most relevant chunks
+        });
+        
+        // Retrieve relevant chunks based on document type and key information
+        const query = `Analyze this ${documentType} document for completeness, accuracy, and compliance with ministry requirements. Extract key information about company details, registration numbers, dates, and required certifications.`;
+        const relevantDocs = await retriever.invoke(query);
+        
+        // Combine retrieved chunks for better context
+        const retrievedText = relevantDocs.map((doc: { pageContent: string }) => doc.pageContent).join('\n\n');
+        
+        // Return the most relevant content (prioritize retrieved chunks, fallback to full text)
+        const finalText = retrievedText.length > 0 
+          ? retrievedText.substring(0, 5000)
+          : rawText.substring(0, 5000);
+        
+        console.log(`[AI Analytics] Successfully analyzed document using RAG. Retrieved ${relevantDocs.length} relevant chunks.`);
+        return finalText;
+      } catch (ragError) {
+        const error = ragError instanceof Error ? ragError : new Error(String(ragError));
+        // If vector store not available, just use full text (not an error)
+        if (error.message.includes('Vector store not available')) {
+          console.log('[AI Analytics] Vector store not available, using full text extraction');
+        } else {
+          console.warn('[AI Analytics] RAG processing failed, using simple text extraction:', {
+            message: error.message,
+            stack: error.stack,
+          });
+        }
+        // Fallback to simple text extraction if RAG fails
+        return rawText.substring(0, 5000);
+      }
     } catch (parseErr) {
       const error = parseErr instanceof Error ? parseErr : new Error(String(parseErr));
       console.error('[AI Analytics] PDF parsing error:', {
