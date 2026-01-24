@@ -143,12 +143,18 @@ async function loadTrainingDocuments(): Promise<string> {
         // Add timeout protection for PDF parsing
         const parsePromise = (async () => {
           try {
-            // Use pdf-parse for training documents (simpler and more reliable)
-            const pdfParseModule = await import('pdf-parse');
-            const pdfParse = (pdfParseModule as any).default || pdfParseModule;
-            const dataBuffer = readFileSync(filePath);
-            const pdfData = await (typeof pdfParse === 'function' ? pdfParse(dataBuffer) : pdfParse.default(dataBuffer));
-            return pdfData.text.trim();
+            // Use LangChain PDFLoader for training documents (serverless-safe)
+            const { PDFLoader } = await import('@langchain/community/document_loaders/fs/pdf');
+            const loader = new PDFLoader(filePath);
+            const docs = await loader.load();
+            
+            if (!docs || docs.length === 0) {
+              return '';
+            }
+            
+            // Extract text from all pages
+            const text = docs.map((doc: { pageContent: string }) => doc.pageContent).join('\n\n').trim();
+            return text;
           } catch (parseErr) {
             const error = parseErr instanceof Error ? parseErr : new Error(String(parseErr));
             console.warn(`[AI Analytics] Failed to parse PDF ${file}:`, error.message);
@@ -256,22 +262,46 @@ async function analyzeDocument(fileUrl: string, documentType: string, userToken?
       return 'Document file is empty or could not be downloaded.';
     }
     
-    // Parse PDF directly from bytes using pdf-parse (simpler and more reliable for URLs)
+    // Use LangChain PDFLoader - serverless-safe, no worker/canvas deps
     try {
-      // Use pdf-parse directly for URL-based PDFs (handles Uint8Array natively)
-      const pdfParseModule = await import('pdf-parse');
-      // pdf-parse exports as default function or named export
-      const pdfParse = (pdfParseModule as any).default || pdfParseModule;
-      const pdfBuffer = Buffer.from(pdfBytes);
+      const { PDFLoader } = await import('@langchain/community/document_loaders/fs/pdf');
       
-      // pdf-parse is a function that takes a buffer
-      const pdfData = await (typeof pdfParse === 'function' ? pdfParse(pdfBuffer) : pdfParse.default(pdfBuffer));
-      const rawText = pdfData.text.trim();
+      // PDFLoader requires a file path, so write to temp file in serverless
+      const { writeFileSync, unlinkSync } = await import('fs');
+      const { join } = await import('path');
+      const os = await import('os');
+      const pdfBuffer = Buffer.from(pdfBytes);
+      const tempPath = join(os.tmpdir(), `pdf-${Date.now()}-${Math.random().toString(36).substring(7)}.pdf`);
+      
+      let docs;
+      try {
+        // Write PDF bytes to temp file
+        writeFileSync(tempPath, pdfBuffer);
+        
+        // Load PDF using LangChain PDFLoader (handles worker setup correctly)
+        const loader = new PDFLoader(tempPath);
+        docs = await loader.load();
+      } finally {
+        // Always clean up temp file
+        try {
+          unlinkSync(tempPath);
+        } catch (cleanupErr) {
+          console.warn('[AI Analytics] Failed to cleanup temp file:', cleanupErr);
+        }
+      }
+      
+      if (!docs || docs.length === 0) {
+        throw new Error('No pages extracted from PDF');
+      }
+      
+      // Extract text from all pages
+      const rawText = docs.map((doc: { pageContent: string }) => doc.pageContent).join('\n\n').trim();
       
       if (rawText.length === 0) {
-        console.warn('[AI Analytics] Document appears to be empty or contains no extractable text');
-        return 'Document appears to be empty or contains no extractable text.';
+        throw new Error('No text extracted from PDF pages');
       }
+      
+      console.log(`[AI Analytics] Extracted ${docs.length} pages, ${rawText.length} chars from PDF`);
       
       // For RAG: Create Document, split, embed, and store in vector store
       // This enables semantic search and better context retrieval
@@ -342,13 +372,30 @@ async function analyzeDocument(fileUrl: string, documentType: string, userToken?
       }
     } catch (parseErr) {
       const error = parseErr instanceof Error ? parseErr : new Error(String(parseErr));
-      console.error('[AI Analytics] PDF parsing error:', {
+      console.error('[AI Analytics] LangChain PDFLoader failed:', {
         fileUrl,
         documentType,
         error: error.message,
         stack: error.stack,
       });
-      return `Error parsing PDF document: ${error.message}`;
+      
+      // Final fallback: simple heuristic extraction (no deps, serverless-safe)
+      try {
+        const textContent = new TextDecoder().decode(pdfBytes);
+        const extracted = textContent
+          .replace(/\x00/g, '')  // Strip null bytes
+          .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')  // Control chars
+          .match(/[\s\S]{1,5000}/)?.[0] || '';  // First 5k printable chars
+        
+        if (extracted.length > 100) {
+          console.warn('[AI Analytics] Using fallback text extraction (limited quality)');
+          return extracted;
+        }
+      } catch (fallbackErr) {
+        // Ignore fallback errors
+      }
+      
+      return `Error parsing PDF document: ${error.message}. Please ensure the PDF is valid and accessible.`;
     }
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
