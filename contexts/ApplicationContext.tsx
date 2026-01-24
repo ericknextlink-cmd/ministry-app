@@ -1,9 +1,11 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { api, authApi, companyInfoApi, directorsApi, documentsApi } from "@/lib/api";
 import { Application, User, CompanyInfo, CompanyInfoUpdate, Director, DirectorCreate, Document } from "@/lib/types";
 import { Loader } from "@/components/ui/loader";
+import { registerLogoutCallback } from "@/lib/auth-handler";
 
 type ApplicationStep = 
   | "apply" 
@@ -61,6 +63,7 @@ interface ApplicationProgress {
 const ApplicationContext = createContext<ApplicationContextType | undefined>(undefined);
 
 export function ApplicationProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [userToken, setUserToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null); // Added user state
@@ -74,8 +77,11 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
     setUserToken(null);
     setUser(null);
     setIsAuthenticated(false);
-    setApplications([]); 
-  }, []);
+    setApplications([]);
+    setError(null);
+    // Redirect to login page
+    router.push('/auth?expired=true');
+  }, [router]);
 
   const fetchApplications = useCallback(async () => {
     if (!userToken) return; 
@@ -86,13 +92,27 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
       setApplications(fetchedApps);
     } catch (err) {
       const error = err as Error;
-      console.error("Error fetching applications:", error);
-      if (error.message?.includes("403") || error.message?.includes("401") || error.message?.toLowerCase().includes("could not validate credentials")) {
-        logout();
-        setError("Session expired. Please login again.");
+      // Don't log or handle 401 here - it's handled globally in the API layer
+      // Only handle other errors
+      if (!error.message?.includes("Session expired") && !error.message?.includes("401") && !error.message?.includes("403")) {
+        console.error("Error fetching applications:", error);
+        setError(error.message || "Failed to fetch applications");
       }
     }
-  }, [userToken, logout]);
+  }, [userToken]);
+
+  // Register logout callback for global auth handler
+  useEffect(() => {
+    const unregister = registerLogoutCallback(() => {
+      setUserToken(null);
+      setUser(null);
+      setIsAuthenticated(false);
+      setApplications([]);
+      setError(null);
+    });
+    
+    return unregister;
+  }, []);
 
   // Load token from localStorage on initial load
   useEffect(() => {
@@ -106,15 +126,18 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
           setUser(userData);
           setIsAuthenticated(true);
         } catch (error) {
-          console.error("Failed to restore session:", error);
-          logout(); // Invalid token
+          // Token is invalid - clear it but don't redirect here (let global handler do it)
+          localStorage.removeItem("access_token");
+          setUserToken(null);
+          setUser(null);
+          setIsAuthenticated(false);
         }
       }
       setInitialLoading(false);
     };
 
     initializeAuth();
-  }, [logout]);
+  }, []);
 
   const login = useCallback(async (email: string, password: string): Promise<User | null> => {
     setLoading(true);

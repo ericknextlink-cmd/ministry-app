@@ -94,10 +94,13 @@ export default function AdminApplicationDetailPage({ params }: { params: Promise
       console.log("API Success:", details);
       setApplicationDetails(details);
     } catch (error: any) {
-      console.error("Failed to fetch application details:", error);
-      toast.error(error.message || "Failed to load application details.");
-      // If 403, redirect to admin list, not auth
-      if (error.message.includes("403") || error.message.includes("401")) {
+      // Don't show error toast for session expiration - it's handled globally
+      if (!error.message?.includes("Session expired") && !error.message?.includes("401")) {
+        console.error("Failed to fetch application details:", error);
+        toast.error(error.message || "Failed to load application details.");
+      }
+      // If 403, redirect to admin list, not auth (401 is handled globally)
+      if (error.message?.includes("403")) {
           router.push("/admin");
       }
     } finally {
@@ -109,13 +112,15 @@ export default function AdminApplicationDetailPage({ params }: { params: Promise
   useEffect(() => {
     const canView = user?.is_superuser || user?.role === 'admin' || user?.role === 'super_admin';
     console.log("Effect triggered:", { isAuthenticated, user, canView });
-    if (isAuthenticated && canView) {
+    if (isAuthenticated && canView && userToken) {
         fetchApplicationDetails();
     } else if (isAuthenticated && user && !canView) {
         console.log("Redirecting non-admin");
         router.push("/dashboard"); // Redirect non-admins
+    } else if (!isAuthenticated) {
+        router.push("/auth");
     }
-  }, [isAuthenticated, user, fetchApplicationDetails, router]);
+  }, [isAuthenticated, user?.role, user?.is_superuser, userToken, applicationId, router]); // Removed fetchApplicationDetails from deps to prevent loops
 
   const handleAssign = async () => {
       if (!userToken) return;
@@ -339,8 +344,16 @@ export default function AdminApplicationDetailPage({ params }: { params: Promise
                               size="sm" 
                               asChild
                           >
-                              {/* In production, this would serve the file, not just link to its local path */}
-                              <a href={`http://localhost:8000/${doc.file_url}`} target="_blank" rel="noopener noreferrer">View</a>
+                              {/* External signed URL from Supabase - must use <a> tag for external resources with target="_blank" */}
+                              <a 
+                                  href={doc.file_url.startsWith('http://') || doc.file_url.startsWith('https://') 
+                                      ? doc.file_url 
+                                      : `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'}/${doc.file_url}`} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                              >
+                                  View
+                              </a>
                           </Button>
                       </div>
                   ))}

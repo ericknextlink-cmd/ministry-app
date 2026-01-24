@@ -1,5 +1,6 @@
 export type { Application, User, UserRole, AuditLog, CompanyInfoUpdate } from "@/lib/types";
 import { Application, User, UserRole, AuditLog, CompanyInfoUpdate } from "@/lib/types";
+import { handleTokenExpiration, isUnauthorizedError } from "./auth-handler";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000/api/v1";
 
@@ -53,6 +54,15 @@ async function request<T>(
         errorMessage = response.statusText || "Unknown error";
     }
     
+    // Handle 401/403 unauthorized errors globally
+    if (response.status === 401 || response.status === 403) {
+      // Only handle token expiration if we have a token (not for login/register endpoints)
+      if (options?.token && !url.includes('/login') && !url.includes('/register')) {
+        handleTokenExpiration();
+        throw new Error('Session expired. Please login again.');
+      }
+    }
+    
     // Business logic errors (4xx) are expected - use warn
     // Technical errors (5xx) are unexpected - use error
     const isBusinessLogicError = response.status >= 400 && response.status < 500;
@@ -97,6 +107,14 @@ export const api = {
     });
 
     if (!response.ok) {
+        // Handle 401/403 unauthorized errors globally
+        if (response.status === 401 || response.status === 403) {
+          if (token && !url.includes('/login') && !url.includes('/register')) {
+            handleTokenExpiration();
+            throw new Error('Session expired. Please login again.');
+          }
+        }
+        
         let errorData: unknown;
         let errorMessage = `Download failed: ${response.status}`;
         try {

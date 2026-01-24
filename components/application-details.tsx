@@ -403,6 +403,7 @@ export function ApplicationDetails({
                           <AlertCircle className="h-5 w-5 text-orange-600" />
                           <p className="text-sm font-medium">Your certificate has been suspended. Please contact the ministry for assistance.</p>
                       </div>
+                      {/* mailto: protocol requires <a> tag - cannot use Next.js Link for external protocols */}
                       <a
                         href="mailto:info@mwh.gov.gh"
                         className="inline-flex h-11 items-center justify-center rounded-full bg-orange-600 px-8 text-white hover:bg-orange-700 transition-colors"

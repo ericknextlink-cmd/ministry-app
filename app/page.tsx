@@ -152,14 +152,14 @@ export default function Home() {
                 >
                   Start Your Application
                 </Link>
-                <a
-                  href="/documents/Guideline-MWHWR.pdf"
+                <Link
+                  href="/docuemnts/Guideline -MWHWR.pdf"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center px-8 py-4 rounded-full border-2 border-gray-200 dark:border-gray-800 hover:border-[#033783] dark:hover:border-blue-400 text-gray-700 dark:text-gray-300 font-semibold transition-colors"
                 >
                   View Guidelines
-                </a>
+                </Link>
               </div>
 
               {/* Contact Information Card */}

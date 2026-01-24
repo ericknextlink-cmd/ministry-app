@@ -32,6 +32,21 @@ export default function AuthPage() {
     }
     return 'login';
   });
+
+  // Show session expired message if redirected due to token expiration
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('expired') === 'true') {
+        toast.info('Your session has expired. Please login again.', {
+          duration: 5000,
+        });
+        // Clean up URL
+        const newUrl = window.location.pathname + (mode === 'register' ? '?mode=register' : '');
+        window.history.replaceState({}, '', newUrl);
+      }
+    }
+  }, [mode]);
   const [showPassword, setShowPassword] = useState(false);
   
   // Login State

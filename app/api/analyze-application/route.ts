@@ -3,11 +3,13 @@ import { analyzeApplication } from '@/lib/ai-analytics';
 import { adminApi } from '@/lib/api';
 
 export async function POST(req: Request) {
+  let applicationId: number | undefined;
   try {
     const body = await req.json();
-    const { applicationId, token } = body;
+    const { applicationId: appId, token } = body;
+    applicationId = appId;
 
-    if (!applicationId) {
+    if (!appId) {
       return NextResponse.json(
         { error: 'Application ID is required' },
         { status: 400 }
@@ -23,7 +25,7 @@ export async function POST(req: Request) {
 
     try {
       const applicationDetails = await adminApi.getAdminApplicationDetails<any>(
-        parseInt(applicationId),
+        parseInt(appId),
         token
       );
 
@@ -55,12 +57,27 @@ export async function POST(req: Request) {
     console.error('Analysis API Error:', {
       message: error.message,
       stack: error.stack,
+      applicationId,
     });
+
+    // Provide more specific error messages based on error type
+    let errorMessage = error.message || 'Failed to analyze application';
+    let errorDetails = 'Please ensure OpenAI API key is configured and try again';
+    
+    if (error.message.includes('API key')) {
+      errorDetails = 'OpenAI API key is missing or invalid. Please configure OPENAI_API_KEY environment variable.';
+    } else if (error.message.includes('timeout')) {
+      errorDetails = 'The analysis request timed out. This may happen with large applications. Please try again.';
+    } else if (error.message.includes('rate limit') || error.message.includes('quota')) {
+      errorDetails = 'OpenAI API rate limit exceeded. Please try again in a few minutes.';
+    } else if (error.message.includes('network') || error.message.includes('fetch')) {
+      errorDetails = 'Network error occurred. Please check your connection and try again.';
+    }
 
     return NextResponse.json(
       {
-        error: error.message || 'Failed to analyze application',
-        details: 'Please ensure OpenAI API key is configured and try again',
+        error: errorMessage,
+        details: errorDetails,
       },
       { status: 500 }
     );

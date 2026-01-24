@@ -35,7 +35,7 @@ function DashboardContent() {
     } else {
       fetchApplications();
     }
-  }, [isAuthenticated, router, fetchApplications]);
+  }, [isAuthenticated, router]); // Removed fetchApplications from deps to prevent loops
 
   // Handle URL ID parameter
   useEffect(() => {

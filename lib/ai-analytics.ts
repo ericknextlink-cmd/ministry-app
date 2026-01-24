@@ -82,6 +82,8 @@ function getAnalyticsModel(): ChatOpenAI | null {
 
 async function loadTrainingDocuments(): Promise<string> {
   try {
+    // In production (serverless), file system access may be limited
+    // Try to access training documents, but gracefully handle failures
     const form3Dir = join(process.cwd(), 'public', 'form3');
     
     // Check if directory exists
@@ -89,13 +91,15 @@ async function loadTrainingDocuments(): Promise<string> {
     try {
       files = readdirSync(form3Dir).filter(f => f.endsWith('.pdf'));
     } catch (dirError) {
-      console.warn('Training documents directory not found:', form3Dir);
-      return 'No training documents available. Analysis will proceed without training examples.';
+      // In production, this might fail due to read-only file system
+      // Return a generic training message instead
+      console.warn('Training documents directory not accessible:', form3Dir);
+      return 'Training examples: Valid applications should include complete company information, director details, and required certificates (Form 3, incorporation certificate, commencement certificate, tax clearance, SSNIT clearance).';
     }
     
     if (files.length === 0) {
       console.warn('No PDF training documents found in form3 directory');
-      return 'No training documents available. Analysis will proceed without training examples.';
+      return 'Training examples: Valid applications should include complete company information, director details, and required certificates (Form 3, incorporation certificate, commencement certificate, tax clearance, SSNIT clearance).';
     }
     
     const trainingData: string[] = [];
@@ -104,29 +108,43 @@ async function loadTrainingDocuments(): Promise<string> {
       try {
         const filePath = join(form3Dir, file);
         const dataBuffer = readFileSync(filePath);
-        const parser = new PDFParse({ data: dataBuffer });
-        const pdfData = await parser.getText();
-        const text = pdfData.text.trim();
-        if (text.length > 0) {
+        
+        // Add timeout protection for PDF parsing
+        const parsePromise = (async () => {
+          const parser = new PDFParse({ data: dataBuffer });
+          const pdfData = await parser.getText();
+          return pdfData.text.trim();
+        })();
+        
+        const timeoutPromise = new Promise<string>((_, reject) => {
+          setTimeout(() => reject(new Error('PDF parsing timeout')), 10000); // 10 second timeout per file
+        });
+        
+        const text = await Promise.race([parsePromise, timeoutPromise]);
+        
+        if (text && text.length > 0) {
           // Remove filename from training data to avoid AI focusing on reference numbers
           // Just include the content structure and information
           trainingData.push(`\n--- Example Form 3 Application (Training Example) ---\n${text.substring(0, 2000)}`); // Limit text per file
         }
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
+        // Log but continue with other files
         console.warn(`Failed to parse training PDF ${file}:`, error.message);
+        // Don't throw - continue processing other files
       }
     }
     
     if (trainingData.length === 0) {
-      return 'Training documents found but could not be parsed. Analysis will proceed without training examples.';
+      return 'Training examples: Valid applications should include complete company information, director details, and required certificates (Form 3, incorporation certificate, commencement certificate, tax clearance, SSNIT clearance).';
     }
     
     return trainingData.join('\n\n');
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     console.error('Error loading training documents:', error);
-    return 'Error loading training documents. Analysis will proceed without training examples.';
+    // Return a fallback training message instead of failing completely
+    return 'Training examples: Valid applications should include complete company information, director details, and required certificates (Form 3, incorporation certificate, commencement certificate, tax clearance, SSNIT clearance).';
   }
 }
 
@@ -225,10 +243,20 @@ export async function analyzeApplication(
 ): Promise<AnalysisResult> {
   const model = getAnalyticsModel();
   if (!model) {
-    throw new Error('OpenAI API key not configured');
+    const errorMsg = process.env.OPENAI_API_KEY 
+      ? 'OpenAI API key is invalid or expired'
+      : 'OpenAI API key not configured. Please set OPENAI_API_KEY environment variable.';
+    throw new Error(errorMsg);
   }
 
-  const trainingData = await loadTrainingDocuments();
+  // Load training data with error handling
+  let trainingData: string;
+  try {
+    trainingData = await loadTrainingDocuments();
+  } catch (err) {
+    console.error('Failed to load training documents, using fallback:', err);
+    trainingData = 'Training examples: Valid applications should include complete company information, director details, and required certificates.';
+  }
   
   const applicationSummary = `
 Application ID: ${applicationData.id}
@@ -258,11 +286,35 @@ ${applicationData.documents.map(d => `- ${d.filename} (${d.document_type})`).joi
 
   let documentAnalyses = '';
   if (applicationData.documents.length > 0) {
+    // Process documents with error handling - don't fail entire analysis if one document fails
     const documentPromises = applicationData.documents.slice(0, 5).map(async (doc) => {
-      const content = await analyzeDocument(doc.file_url, doc.document_type, userToken);
-      return `\n--- Document: ${doc.filename} (${doc.document_type}) ---\n${content.substring(0, 2000)}`;
+      try {
+        const content = await analyzeDocument(doc.file_url, doc.document_type, userToken);
+        return `\n--- Document: ${doc.filename} (${doc.document_type}) ---\n${content.substring(0, 2000)}`;
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        console.error(`Failed to analyze document ${doc.filename}:`, error.message);
+        return `\n--- Document: ${doc.filename} (${doc.document_type}) ---\n[Error: Could not analyze this document - ${error.message}]`;
+      }
     });
-    documentAnalyses = await Promise.all(documentPromises).then(results => results.join('\n\n'));
+    
+    try {
+      const results = await Promise.allSettled(documentPromises);
+      documentAnalyses = results
+        .map((result, index) => {
+          if (result.status === 'fulfilled') {
+            return result.value;
+          } else {
+            const doc = applicationData.documents[index];
+            console.error(`Document analysis failed for ${doc?.filename}:`, result.reason);
+            return `\n--- Document: ${doc?.filename || 'Unknown'} ---\n[Error: Document analysis failed]`;
+          }
+        })
+        .join('\n\n');
+    } catch (err) {
+      console.error('Error processing documents:', err);
+      documentAnalyses = 'Some documents could not be analyzed. Please review documents manually.';
+    }
   }
 
   const systemPrompt = `You are an expert application reviewer for the Ministry of Works, Housing & Water Resources (MWHWR) in Ghana. 
@@ -342,27 +394,69 @@ IMPORTANT:
   ];
 
   try {
-    const response = await model.invoke(messages);
+    // Add timeout for AI API call (5 minutes max)
+    const invokePromise = model.invoke(messages);
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('AI analysis timeout - request took too long')), 300000); // 5 minutes
+    });
+    
+    const response = await Promise.race([invokePromise, timeoutPromise]);
     const content = response.content as string;
+    
+    if (!content || typeof content !== 'string') {
+      throw new Error('AI returned empty or invalid response');
+    }
     
     let analysisResult: AnalysisResult;
     
     try {
+      // Try to extract JSON from response (AI might add markdown formatting)
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         analysisResult = JSON.parse(jsonMatch[0]);
       } else {
         throw new Error('No JSON found in response');
       }
+      
+      // Validate the result structure
+      if (!analysisResult.verdict || !analysisResult.summary) {
+        throw new Error('AI response missing required fields');
+      }
+      
+      // Ensure confidence is a number
+      if (typeof analysisResult.confidence !== 'number') {
+        analysisResult.confidence = 50; // Default confidence
+      }
+      
     } catch (parseError) {
-      console.error('Failed to parse AI response as JSON:', parseError);
-      throw new Error('AI returned invalid response format');
+      const parseErr = parseError instanceof Error ? parseError : new Error(String(parseError));
+      console.error('Failed to parse AI response as JSON:', {
+        error: parseErr.message,
+        responsePreview: content.substring(0, 500)
+      });
+      throw new Error(`AI returned invalid response format: ${parseErr.message}`);
     }
 
     return analysisResult;
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
-    console.error('AI Analysis Error:', error);
+    console.error('AI Analysis Error:', {
+      message: error.message,
+      stack: error.stack,
+      applicationId: applicationData.id
+    });
+    
+    // Provide more specific error messages
+    if (error.message.includes('timeout')) {
+      throw new Error('Analysis timed out. The request took too long to process. Please try again or contact support.');
+    }
+    if (error.message.includes('API key') || error.message.includes('authentication')) {
+      throw new Error('OpenAI API authentication failed. Please check API key configuration.');
+    }
+    if (error.message.includes('rate limit') || error.message.includes('quota')) {
+      throw new Error('OpenAI API rate limit exceeded. Please try again later.');
+    }
+    
     throw error;
   }
 }
