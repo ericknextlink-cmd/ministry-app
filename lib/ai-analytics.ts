@@ -203,9 +203,11 @@ async function loadTrainingDocuments(): Promise<string> {
 }
 
 async function analyzeDocument(fileUrl: string, documentType: string, userToken?: string): Promise<string> {
+  let pdfBytes: Uint8Array | null = null;
+  let fullUrl = '';
+  
   try {
     // Handle both full URLs and relative paths
-    let fullUrl: string;
     if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
       // Already a full URL - use as is
       fullUrl = fileUrl;
@@ -254,7 +256,7 @@ async function analyzeDocument(fileUrl: string, documentType: string, userToken?
     
     // Fetch PDF bytes from Supabase signed URL
     const arrayBuffer = await response.arrayBuffer();
-    const pdfBytes = new Uint8Array(arrayBuffer);
+    pdfBytes = new Uint8Array(arrayBuffer);
     
     // Check if buffer is empty
     if (pdfBytes.length === 0) {
@@ -262,8 +264,13 @@ async function analyzeDocument(fileUrl: string, documentType: string, userToken?
       return 'Document file is empty or could not be downloaded.';
     }
     
-    // Use LangChain PDFLoader - serverless-safe, no worker/canvas deps
+    // Try multiple PDF loading strategies with fallbacks
+    let rawText = '';
+    let docs: any[] = [];
+    
     try {
+      // Strategy 1: Try PDFLoader with temp file (works if pdf-parse v1 is available)
+      // Strategy 1: Try PDFLoader with temp file (works if pdf-parse v1 is available)
       const { PDFLoader } = await import('@langchain/community/document_loaders/fs/pdf');
       
       // PDFLoader requires a file path, so write to temp file in serverless
@@ -273,7 +280,6 @@ async function analyzeDocument(fileUrl: string, documentType: string, userToken?
       const pdfBuffer = Buffer.from(pdfBytes);
       const tempPath = join(os.tmpdir(), `pdf-${Date.now()}-${Math.random().toString(36).substring(7)}.pdf`);
       
-      let docs;
       try {
         // Write PDF bytes to temp file
         writeFileSync(tempPath, pdfBuffer);
@@ -290,96 +296,151 @@ async function analyzeDocument(fileUrl: string, documentType: string, userToken?
         }
       }
       
-      if (!docs || docs.length === 0) {
-        throw new Error('No pages extracted from PDF');
-      }
-      
-      // Extract text from all pages
-      const rawText = docs.map((doc: { pageContent: string }) => doc.pageContent).join('\n\n').trim();
-      
-      if (rawText.length === 0) {
-        throw new Error('No text extracted from PDF pages');
-      }
-      
-      console.log(`[AI Analytics] Extracted ${docs.length} pages, ${rawText.length} chars from PDF`);
-      
-      // For RAG: Create Document, split, embed, and store in vector store
-      // This enables semantic search and better context retrieval
-      const apiKey = process.env.OPENAI_API_KEY;
-      if (!apiKey) {
-        console.warn('[AI Analytics] OpenAI API key not configured, using simple text extraction');
-        return rawText.substring(0, 5000); // Limit text length
-      }
-      
-      try {
-        // Dynamically import LangChain modules for RAG
-        const { Document } = await import('@langchain/core/documents');
-        const { RecursiveCharacterTextSplitter } = await import('@langchain/textsplitters');
-        const { OpenAIEmbeddings } = await import('@langchain/openai');
-        // Create Document from parsed text
-        const docs = [new Document({ 
-          pageContent: rawText, 
-          metadata: { source: fileUrl, documentType } 
-        })];
-        
-        // Split document into chunks for better retrieval
-        const splitter = new RecursiveCharacterTextSplitter({
-          chunkSize: 1000,
-          chunkOverlap: 200,
-        });
-        
-        const splits = await splitter.splitDocuments(docs);
-        
-        // Create embeddings and vector store for semantic search
-        const embeddings = new OpenAIEmbeddings({
-          openAIApiKey: apiKey,
-        });
-        
-        // Use FaissStore from @langchain/community (already installed, per LangChain docs)
-        const { FaissStore } = await import('@langchain/community/vectorstores/faiss');
-        const vectorStore = await FaissStore.fromDocuments(splits, embeddings);
-        const retriever = vectorStore.asRetriever({ 
-          k: 4 // Retrieve top 4 most relevant chunks
-        });
-        
-        // Retrieve relevant chunks based on document type and key information
-        const query = `Analyze this ${documentType} document for completeness, accuracy, and compliance with ministry requirements. Extract key information about company details, registration numbers, dates, and required certifications.`;
-        const relevantDocs = await retriever.invoke(query);
-        
-        // Combine retrieved chunks for better context
-        const retrievedText = relevantDocs.map((doc: { pageContent: string }) => doc.pageContent).join('\n\n');
-        
-        // Return the most relevant content (prioritize retrieved chunks, fallback to full text)
-        const finalText = retrievedText.length > 0 
-          ? retrievedText.substring(0, 5000)
-          : rawText.substring(0, 5000);
-        
-        console.log(`[AI Analytics] Successfully analyzed document using RAG. Retrieved ${relevantDocs.length} relevant chunks.`);
-        return finalText;
-      } catch (ragError) {
-        const error = ragError instanceof Error ? ragError : new Error(String(ragError));
-        // If vector store not available, just use full text (not an error)
-        if (error.message.includes('Vector store not available')) {
-          console.log('[AI Analytics] Vector store not available, using full text extraction');
-        } else {
-          console.warn('[AI Analytics] RAG processing failed, using simple text extraction:', {
-            message: error.message,
-            stack: error.stack,
-          });
+      if (docs && docs.length > 0) {
+        rawText = docs.map((doc: { pageContent: string }) => doc.pageContent).join('\n\n').trim();
+        if (rawText.length > 0) {
+          console.log(`[AI Analytics] PDFLoader extracted ${docs.length} pages, ${rawText.length} chars from PDF`);
         }
-        // Fallback to simple text extraction if RAG fails
-        return rawText.substring(0, 5000);
       }
-    } catch (parseErr) {
-      const error = parseErr instanceof Error ? parseErr : new Error(String(parseErr));
-      console.error('[AI Analytics] LangChain PDFLoader failed:', {
-        fileUrl,
-        documentType,
-        error: error.message,
-        stack: error.stack,
+    } catch (pdfLoaderError) {
+      const error = pdfLoaderError instanceof Error ? pdfLoaderError : new Error(String(pdfLoaderError));
+      console.warn('[AI Analytics] PDFLoader failed, trying WebPDFLoader fallback:', error.message);
+      
+      // Strategy 2: Fallback to WebPDFLoader (works directly with Blob/URL, no temp files)
+      try {
+        // WebPDFLoader can work with Blob directly from fetch
+        // Create a Blob from the PDF bytes (convert Uint8Array to ArrayBuffer)
+        // Create a new ArrayBuffer view to ensure compatibility
+        const arrayBuffer = pdfBytes.buffer.slice(pdfBytes.byteOffset, pdfBytes.byteOffset + pdfBytes.byteLength);
+        const pdfBlob = new Blob([arrayBuffer as ArrayBuffer], { type: 'application/pdf' });
+        
+        // Try to import WebPDFLoader
+        try {
+          const { WebPDFLoader } = await import('@langchain/community/document_loaders/web/pdf');
+          const loader = new WebPDFLoader(pdfBlob);
+          docs = await loader.load();
+          
+          if (docs && docs.length > 0) {
+            rawText = docs.map((doc: { pageContent: string }) => doc.pageContent).join('\n\n').trim();
+            if (rawText.length > 0) {
+              console.log(`[AI Analytics] WebPDFLoader extracted ${docs.length} pages, ${rawText.length} chars from PDF`);
+            }
+          }
+        } catch (webLoaderError) {
+          // If WebPDFLoader import fails, try alternative path or direct URL approach
+          console.warn('[AI Analytics] WebPDFLoader import failed, trying direct URL fetch approach:', webLoaderError);
+          
+          // Strategy 3: Fetch directly from URL and use WebPDFLoader with response
+          try {
+            const { WebPDFLoader } = await import('@langchain/community/document_loaders/web/pdf');
+            // Fetch the PDF again to get a fresh response for WebPDFLoader
+            const pdfResponse = await fetch(fullUrl, { headers });
+            if (pdfResponse.ok) {
+              const blob = await pdfResponse.blob();
+              const loader = new WebPDFLoader(blob);
+              docs = await loader.load();
+              
+              if (docs && docs.length > 0) {
+                rawText = docs.map((doc: { pageContent: string }) => doc.pageContent).join('\n\n').trim();
+                if (rawText.length > 0) {
+                  console.log(`[AI Analytics] WebPDFLoader (URL) extracted ${docs.length} pages, ${rawText.length} chars from PDF`);
+                }
+              }
+            }
+          } catch (urlLoaderError) {
+            console.warn('[AI Analytics] WebPDFLoader URL approach also failed:', urlLoaderError);
+            throw error; // Re-throw original PDFLoader error to trigger final fallback
+          }
+        }
+      } catch (webLoaderFallbackError) {
+        console.warn('[AI Analytics] All PDFLoader strategies failed, will use final fallback');
+        throw error; // Re-throw to trigger final fallback
+      }
+    }
+    
+    // If we still don't have text, throw error to trigger final fallback
+    if (!rawText || rawText.length === 0) {
+      throw new Error('No text extracted from PDF using any loader method');
+    }
+    
+    // For RAG: Create Document, split, embed, and store in vector store
+    // This enables semantic search and better context retrieval
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      console.warn('[AI Analytics] OpenAI API key not configured, using simple text extraction');
+      return rawText.substring(0, 5000); // Limit text length
+    }
+    
+    try {
+      // Dynamically import LangChain modules for RAG
+      const { Document } = await import('@langchain/core/documents');
+      const { RecursiveCharacterTextSplitter } = await import('@langchain/textsplitters');
+      const { OpenAIEmbeddings } = await import('@langchain/openai');
+      // Create Document from parsed text
+      const ragDocs = [new Document({ 
+        pageContent: rawText, 
+        metadata: { source: fileUrl, documentType } 
+      })];
+      
+      // Split document into chunks for better retrieval
+      const splitter = new RecursiveCharacterTextSplitter({
+        chunkSize: 1000,
+        chunkOverlap: 200,
       });
       
-      // Final fallback: simple heuristic extraction (no deps, serverless-safe)
+      const splits = await splitter.splitDocuments(ragDocs);
+      
+      // Create embeddings and vector store for semantic search
+      const embeddings = new OpenAIEmbeddings({
+        openAIApiKey: apiKey,
+      });
+      
+      // Use FaissStore from @langchain/community (already installed, per LangChain docs)
+      const { FaissStore } = await import('@langchain/community/vectorstores/faiss');
+      const vectorStore = await FaissStore.fromDocuments(splits, embeddings);
+      const retriever = vectorStore.asRetriever({ 
+        k: 4 // Retrieve top 4 most relevant chunks
+      });
+      
+      // Retrieve relevant chunks based on document type and key information
+      const query = `Analyze this ${documentType} document for completeness, accuracy, and compliance with ministry requirements. Extract key information about company details, registration numbers, dates, and required certifications.`;
+      const relevantDocs = await retriever.invoke(query);
+      
+      // Combine retrieved chunks for better context
+      const retrievedText = relevantDocs.map((doc: { pageContent: string }) => doc.pageContent).join('\n\n');
+      
+      // Return the most relevant content (prioritize retrieved chunks, fallback to full text)
+      const finalText = retrievedText.length > 0 
+        ? retrievedText.substring(0, 5000)
+        : rawText.substring(0, 5000);
+      
+      console.log(`[AI Analytics] Successfully analyzed document using RAG. Retrieved ${relevantDocs.length} relevant chunks.`);
+      return finalText;
+    } catch (ragError) {
+      const error = ragError instanceof Error ? ragError : new Error(String(ragError));
+      // If vector store not available, just use full text (not an error)
+      if (error.message.includes('Vector store not available')) {
+        console.log('[AI Analytics] Vector store not available, using full text extraction');
+      } else {
+        console.warn('[AI Analytics] RAG processing failed, using simple text extraction:', {
+          message: error.message,
+          stack: error.stack,
+        });
+      }
+      // Fallback to simple text extraction if RAG fails
+      return rawText.substring(0, 5000);
+    }
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    console.error('[AI Analytics] Document analysis error:', {
+      fileUrl,
+      documentType,
+      error: error.message,
+      stack: error.stack,
+    });
+    
+    // Final fallback: simple heuristic extraction (no deps, serverless-safe)
+    if (pdfBytes) {
       try {
         const textContent = new TextDecoder().decode(pdfBytes);
         const extracted = textContent
@@ -394,17 +455,7 @@ async function analyzeDocument(fileUrl: string, documentType: string, userToken?
       } catch (fallbackErr) {
         // Ignore fallback errors
       }
-      
-      return `Error parsing PDF document: ${error.message}. Please ensure the PDF is valid and accessible.`;
     }
-  } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
-    console.error('[AI Analytics] Document analysis error:', {
-      fileUrl,
-      documentType,
-      error: error.message,
-      stack: error.stack,
-    });
     
     // Provide more specific error messages
     if (error.name === 'AbortError' || error.message.includes('aborted') || error.message.includes('timeout')) {

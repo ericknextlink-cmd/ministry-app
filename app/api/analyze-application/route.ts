@@ -1,12 +1,9 @@
 import { NextResponse } from 'next/server';
-import { analyzeApplication } from '@/lib/ai-analytics';
 import { adminApi } from '@/lib/api';
 
-// Explicitly export route config to ensure POST is allowed
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Handle OPTIONS for CORS preflight
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 200,
@@ -39,91 +36,147 @@ export async function POST(req: Request) {
       );
     }
 
-    try {
-      const applicationDetails = await adminApi.getAdminApplicationDetails<any>(
-        parseInt(appId),
-        token
-      );
+    const applicationDetails = await adminApi.getAdminApplicationDetails<any>(
+      parseInt(appId),
+      token
+    );
 
-      const analysisResult = await analyzeApplication(
-        {
-          id: applicationDetails.id,
-          certificate_type: applicationDetails.certificate_type,
-          certificate_class: applicationDetails.certificate_class,
-          company_info: applicationDetails.company_info,
-          directors: applicationDetails.directors || [],
-          documents: applicationDetails.documents || [],
-        },
-        token
-      );
-
+    const documents = applicationDetails.documents || [];
+    if (documents.length === 0) {
       return NextResponse.json({
         success: true,
-        analysis: analysisResult,
-      });
-    } catch (apiError: any) {
-      // Check if it's an AnalysisError with userMessage
-      if (apiError.userMessage && apiError.code) {
-        console.error('[Analyze Application API] Analysis error:', {
-          code: apiError.code,
-          message: apiError.message,
-          userMessage: apiError.userMessage,
-          retryable: apiError.retryable,
-          applicationId,
-        });
-        
-        return NextResponse.json(
-          {
-            error: apiError.userMessage,
-            code: apiError.code,
-            retryable: apiError.retryable,
-            details: apiError.message, // For server logs
+        analysis: {
+          verdict: 'needs_review',
+          confidence: 0,
+          summary: 'No documents found for analysis.',
+          detailedReport: {
+            documents: {
+              status: 'incomplete',
+              findings: ['No documents uploaded for this application.'],
+              documentAnalysis: [],
+            },
           },
-          { status: apiError.retryable ? 500 : 503 }
-        );
-      }
-      
-      // Regular error from API call
-      console.error('[Analyze Application API] Error fetching application details:', {
-        message: apiError.message,
-        stack: apiError.stack,
-        applicationId,
-      });
-      return NextResponse.json(
-        { 
-          error: 'Failed to fetch application details. Please try again.',
-          code: 'API_ERROR',
-          retryable: true,
+          recommendations: ['Please upload required documents before analysis.'],
         },
-        { status: 500 }
-      );
+      });
     }
+
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+    const documentAnalyses = await Promise.allSettled(
+      documents.map(async (doc: any) => {
+        try {
+          const response = await fetch(`${backendUrl}/api/v1/analyze/document`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              document_url: doc.file_url,
+              document_type: doc.document_type,
+              strategy: 'hi_res',
+              use_ocr: true,
+              extract_tables: true,
+              extract_forms: false,
+              languages: ['eng'],
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || `Failed to analyze ${doc.filename}`);
+          }
+
+          return await response.json();
+        } catch (error) {
+          console.error(`[Analyze Application API] Error analyzing document ${doc.filename}:`, error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            filename: doc.filename,
+            document_type: doc.document_type,
+          };
+        }
+      })
+    );
+
+    const successfulAnalyses = documentAnalyses
+      .filter((result) => result.status === 'fulfilled' && result.value.success)
+      .map((result) => (result as PromiseFulfilledResult<any>).value);
+
+    const failedAnalyses = documentAnalyses
+      .filter((result) => result.status === 'rejected' || (result.status === 'fulfilled' && !result.value.success))
+      .map((result) => 
+        result.status === 'rejected' 
+          ? { error: result.reason?.message || 'Unknown error' }
+          : result.value
+      );
+
+    const combinedAnalysis = successfulAnalyses
+      .map((analysis) => analysis.analysis)
+      .join('\n\n');
+
+    const documentAnalysisResults = documents.map((doc: any, index: number) => {
+      const analysisResult = documentAnalyses[index];
+      if (analysisResult.status === 'fulfilled' && analysisResult.value.success) {
+        return {
+          filename: doc.filename,
+          documentType: doc.document_type,
+          status: 'valid' as const,
+          findings: [analysisResult.value.analysis],
+        };
+      } else {
+        return {
+          filename: doc.filename,
+          documentType: doc.document_type,
+          status: 'needs_review' as const,
+          findings: [
+            analysisResult.status === 'rejected'
+              ? `Analysis failed: ${analysisResult.reason?.message || 'Unknown error'}`
+              : analysisResult.value.error || 'Analysis unavailable',
+          ],
+        };
+      }
+    });
+
+    const allDocumentsValid = documentAnalysisResults.every((doc) => doc.status === 'valid');
+    const hasFailures = failedAnalyses.length > 0;
+
+    const analysisResult = {
+      verdict: allDocumentsValid ? 'approve' : hasFailures ? 'needs_review' : 'approve',
+      confidence: allDocumentsValid ? 0.9 : hasFailures ? 0.5 : 0.7,
+      summary: combinedAnalysis || 'Document analysis completed. Review individual document findings for details.',
+      detailedReport: {
+        companyInfo: {
+          status: applicationDetails.company_info ? 'complete' : 'incomplete',
+          findings: applicationDetails.company_info ? [] : ['Company information not provided'],
+        },
+        directors: {
+          status: (applicationDetails.directors || []).length > 0 ? 'complete' : 'incomplete',
+          findings: (applicationDetails.directors || []).length > 0 ? [] : ['No directors information provided'],
+        },
+        documents: {
+          status: allDocumentsValid ? 'complete' : hasFailures ? 'issues' : 'complete',
+          findings: failedAnalyses.map((f) => f.error || 'Analysis failed'),
+          documentAnalysis: documentAnalysisResults,
+        },
+        compliance: {
+          status: allDocumentsValid ? 'compliant' : 'partial',
+          findings: [],
+        },
+      },
+      recommendations: failedAnalyses.length > 0
+        ? ['Some documents could not be analyzed. Please verify document quality and try again.']
+        : [],
+    };
+
+    return NextResponse.json({
+      success: true,
+      analysis: analysisResult,
+    });
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     
-    // Check if it's an AnalysisError
-    if ('userMessage' in error && 'code' in error) {
-      const analysisError = error as any;
-      console.error('[Analyze Application API] Analysis error:', {
-        code: analysisError.code,
-        message: analysisError.message,
-        userMessage: analysisError.userMessage,
-        retryable: analysisError.retryable,
-        applicationId,
-      });
-      
-      return NextResponse.json(
-        {
-          error: analysisError.userMessage,
-          code: analysisError.code,
-          retryable: analysisError.retryable,
-          details: analysisError.message, // For server logs
-        },
-        { status: analysisError.retryable ? 500 : 503 }
-      );
-    }
-    
-    // Generic error
     console.error('[Analyze Application API] Unexpected error:', {
       message: error.message,
       stack: error.stack,
@@ -135,7 +188,7 @@ export async function POST(req: Request) {
         error: 'An unexpected error occurred during analysis. Please try again or contact support if the issue persists.',
         code: 'UNKNOWN_ERROR',
         retryable: true,
-        details: error.message, // For server logs
+        details: error.message,
       },
       { status: 500 }
     );
