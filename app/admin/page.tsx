@@ -35,8 +35,8 @@ export default function AdminDashboard() {
         } catch (error: any) {
             // Don't show error toast for session expiration - it's handled globally
             if (!error.message?.includes("Session expired") && !error.message?.includes("401")) {
-                console.error("Failed to load admin data", error);
-                toast.error("Failed to load admin data. Are you an admin?");
+            console.error("Failed to load admin data", error);
+            toast.error("Failed to load admin data. Are you an admin?");
             }
             // 401 is handled globally, only handle 403 here
             if (error.message?.includes("403")) {

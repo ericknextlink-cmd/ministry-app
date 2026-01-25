@@ -268,33 +268,33 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
 
       {/* Status or Download Certificate */}
       <div className="mt-2 sm:mt-3 px-2 sm:px-0">
-        {isApproved && !isExpired ? (
-          <button 
-              type="button"
+      {isApproved && !isExpired ? (
+        <button 
+            type="button"
               className="flex items-center gap-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={handleDownloadCertificate} 
-              disabled={isDownloading}
-          >
-            {isDownloading ? (
+            onClick={handleDownloadCertificate} 
+            disabled={isDownloading}
+        >
+          {isDownloading ? (
               <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 shrink-0 animate-spin" />
-            ) : (
+          ) : (
               <div className="relative h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 shrink-0">
-                  <Image
-                  src="/certificate.png"
-                  alt="Certificate"
-                  fill
-                  className="object-contain"
+                <Image
+                src="/certificate.png"
+                alt="Certificate"
+                fill
+                className="object-contain"
                   sizes="(max-width: 640px) 16px, (max-width: 768px) 20px, 24px"
-                  />
-              </div>
-            )}
+                />
+            </div>
+          )}
             <span className="text-xs sm:text-sm font-medium">
-              {isDownloading ? "Preparing..." : "Download Certificate"}
-            </span>
-          </button>
-        ) : (
-          getStatusLabel()
-        )}
+            {isDownloading ? "Preparing..." : "Download Certificate"}
+          </span>
+        </button>
+      ) : (
+        getStatusLabel()
+      )}
       </div>
     </motion.div>
   );

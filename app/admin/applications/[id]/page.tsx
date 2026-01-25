@@ -99,8 +99,8 @@ export default function AdminApplicationDetailPage({ params }: { params: Promise
     } catch (error: any) {
       // Don't show error toast for session expiration - it's handled globally
       if (!error.message?.includes("Session expired") && !error.message?.includes("401")) {
-        console.error("Failed to fetch application details:", error);
-        toast.error(error.message || "Failed to load application details.");
+      console.error("Failed to fetch application details:", error);
+      toast.error(error.message || "Failed to load application details.");
       }
       // If 403, redirect to admin list, not auth (401 is handled globally)
       if (error.message?.includes("403")) {
@@ -344,7 +344,7 @@ export default function AdminApplicationDetailPage({ params }: { params: Promise
                           </div>
                           <Button 
                               variant="outline" 
-                              size="sm"
+                              size="sm" 
                               onClick={() => {
                                   const index = applicationDetails.documents.findIndex(d => d.id === doc.id);
                                   setSelectedDocumentIndex(index >= 0 ? index : 0);

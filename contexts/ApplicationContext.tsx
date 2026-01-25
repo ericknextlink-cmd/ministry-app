@@ -77,7 +77,7 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
     setUserToken(null);
     setUser(null);
     setIsAuthenticated(false);
-    setApplications([]);
+    setApplications([]); 
     setError(null);
     // Redirect to login page
     router.push('/auth?expired=true');
@@ -95,7 +95,7 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
       // Don't log or handle 401 here - it's handled globally in the API layer
       // Only handle other errors
       if (!error.message?.includes("Session expired") && !error.message?.includes("401") && !error.message?.includes("403")) {
-        console.error("Error fetching applications:", error);
+      console.error("Error fetching applications:", error);
         setError(error.message || "Failed to fetch applications");
       }
     }

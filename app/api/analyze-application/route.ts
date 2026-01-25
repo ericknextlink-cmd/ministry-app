@@ -61,11 +61,17 @@ export async function POST(req: Request) {
       });
     }
 
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+    const backendUrl = baseUrl.endsWith('/api/v1') 
+      ? baseUrl 
+      : baseUrl.endsWith('/api/v1/') 
+        ? baseUrl.slice(0, -1)
+        : `${baseUrl}/api/v1`;
+    
     const documentAnalyses = await Promise.allSettled(
       documents.map(async (doc: any) => {
         try {
-          const response = await fetch(`${backendUrl}/api/v1/analyze/document`, {
+          const response = await fetch(`${backendUrl}/analyze/document`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
