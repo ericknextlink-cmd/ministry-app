@@ -116,7 +116,14 @@ export async function POST(req: Request) {
       .map((analysis) => analysis.analysis)
       .join('\n\n');
 
-    const documentAnalysisResults = documents.map((doc: any, index: number) => {
+    interface DocumentAnalysisResult {
+      filename: string;
+      documentType: string;
+      status: 'valid' | 'needs_review';
+      findings: string[];
+    }
+
+    const documentAnalysisResults: DocumentAnalysisResult[] = documents.map((doc: any, index: number) => {
       const analysisResult = documentAnalyses[index];
       if (analysisResult.status === 'fulfilled' && analysisResult.value.success) {
         return {
@@ -139,7 +146,7 @@ export async function POST(req: Request) {
       }
     });
 
-    const allDocumentsValid = documentAnalysisResults.every((doc) => doc.status === 'valid');
+    const allDocumentsValid = documentAnalysisResults.every((doc: DocumentAnalysisResult) => doc.status === 'valid');
     const hasFailures = failedAnalyses.length > 0;
 
     const analysisResult = {
