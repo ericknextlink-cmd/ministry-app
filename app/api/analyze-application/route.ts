@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminApi } from '@/lib/api';
+import { analyzeDocumentFallback } from '@/lib/analysis-fallbacks';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -94,11 +95,27 @@ export async function POST(req: Request) {
           }
 
           return await response.json();
-        } catch (error) {
-          console.error(`[Analyze Application API] Error analyzing document ${doc.filename}:`, error);
+        } catch (primaryError) {
+          console.warn(`[Analyze Application API] Primary analysis failed for ${doc.filename}, trying fallbacks:`, primaryError instanceof Error ? primaryError.message : primaryError);
+          const fallback = await analyzeDocumentFallback(
+            doc.file_url,
+            doc.document_type,
+            doc.filename,
+            token
+          );
+          if (fallback.success && fallback.analysis) {
+            return {
+              success: true,
+              analysis: fallback.analysis,
+              extracted_text: '',
+              tables: [],
+              forms: [],
+              metadata: { source: 'fallback' },
+            };
+          }
           return {
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error',
+            error: fallback.error ?? (primaryError instanceof Error ? primaryError.message : 'Unknown error'),
             filename: doc.filename,
             document_type: doc.document_type,
           };

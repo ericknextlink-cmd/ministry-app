@@ -92,7 +92,7 @@ export function DashboardSidebar({ isOpen, isCollapsed, onClose, onToggleCollaps
           </button>
 
           {/* Navigation Items */}
-          <nav className="flex-1 space-y-2 overflow-y-auto p-4">
+          <nav className="flex-1 space-y-2 overflow-y-auto p-4" data-tutorial="tutorial-sidebar">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
               return (
@@ -130,7 +130,7 @@ export function DashboardSidebar({ isOpen, isCollapsed, onClose, onToggleCollaps
 
           {/* User Profile */}
           <div className="border-t bg-gray-50 p-4 dark:bg-gray-900">
-            <Link href="/dashboard/profile" className={cn("flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded-lg transition-colors", isCollapsed && "justify-center")}>
+            <Link href="/dashboard/profile" className={cn("flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded-lg transition-colors", isCollapsed && "justify-center")} data-tutorial="tutorial-profile">
               <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold">
                 {user?.full_name ? user.full_name.charAt(0).toUpperCase() : (user?.email?.charAt(0).toUpperCase() || "U")}
               </div>

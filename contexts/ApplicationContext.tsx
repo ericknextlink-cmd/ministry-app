@@ -26,6 +26,7 @@ interface ApplicationContextType {
   applications: Application[];
   fetchApplications: () => Promise<void>;
   refreshApplications: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   createApplication: (data: { certificate_type: Application["certificate_type"]; description?: string }) => Promise<Application>;
   renewApplication: (id: number) => Promise<Application>;
   cancelApplication: (id: number) => Promise<Application>;
@@ -84,7 +85,7 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
   }, [router]);
 
   const fetchApplications = useCallback(async () => {
-    if (!userToken) return; 
+    if (!userToken) return;
 
     setError(null);
     try {
@@ -92,12 +93,20 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
       setApplications(fetchedApps);
     } catch (err) {
       const error = err as Error;
-      // Don't log or handle 401 here - it's handled globally in the API layer
-      // Only handle other errors
       if (!error.message?.includes("Session expired") && !error.message?.includes("401") && !error.message?.includes("403")) {
-      console.error("Error fetching applications:", error);
+        console.error("Error fetching applications:", error);
         setError(error.message || "Failed to fetch applications");
       }
+    }
+  }, [userToken]);
+
+  const refreshUser = useCallback(async () => {
+    if (!userToken) return;
+    try {
+      const userData = await authApi.getMe(userToken);
+      setUser(userData);
+    } catch (err) {
+      console.warn("refreshUser failed:", err);
     }
   }, [userToken]);
 
@@ -581,6 +590,7 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
         applications,
         fetchApplications,
         refreshApplications: fetchApplications,
+        refreshUser,
         createApplication,
         renewApplication,
         cancelApplication,

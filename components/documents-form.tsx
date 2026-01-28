@@ -81,15 +81,14 @@ export function DocumentsForm({ application, onSuccess }: DocumentsFormProps) {
 
     setLoading(true);
     try {
-      // Final Submission!
+      // Move to review step (files already stored, just update step)
       await updateApplication(application.id, {
-          current_step: 7, // 7 = Review/Done
-          status: "submitted" // Change status to submitted
+          current_step: 7 // 7 = Review
       });
-      toast.success("Application Submitted Successfully!");
+      toast.success("All documents uploaded! Proceeding to review...");
       onSuccess();
     } catch (error: any) {
-      toast.error("Failed to submit application");
+      toast.error("Failed to proceed to review");
     } finally {
       setLoading(false);
     }
@@ -180,7 +179,7 @@ export function DocumentsForm({ application, onSuccess }: DocumentsFormProps) {
           className="bg-[#033783] text-white hover:bg-[#022555] px-8"
           disabled={loading}
         >
-          {loading ? "Submitting..." : "Submit Application"}
+          {loading ? "Processing..." : "Proceed to Review"}
         </Button>
       </div>
     </motion.div>

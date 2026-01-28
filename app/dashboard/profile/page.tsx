@@ -8,12 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, User, Phone, Mail, Lock } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Loader2, User, Phone, Mail, Lock, BookOpen } from "lucide-react";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { DashboardHeader } from "@/components/dashboard-header";
 
 export default function ProfilePage() {
-  const { user, userToken, fetchApplications } = useApplication(); // fetchApplications effectively refreshes user context if we modify logic, but currently we might need to manually update user state if context doesn't auto-refresh from /me
+  const { user, userToken, refreshUser } = useApplication();
   const [loading, setLoading] = useState(false);
   
   // Layout State
@@ -29,6 +30,23 @@ export default function ProfilePage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [tutorialLoading, setTutorialLoading] = useState(false);
+  const router = useRouter();
+
+  const handleShowTutorialAgain = async () => {
+    if (!userToken) return;
+    setTutorialLoading(true);
+    try {
+      await authApi.updateProfile({ tutorials_completed: false }, userToken);
+      await refreshUser();
+      toast.success("Tutorial will show on the next dashboard visit.");
+      router.push("/dashboard");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to reset tutorial.");
+    } finally {
+      setTutorialLoading(false);
+    }
+  };
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,13 +55,8 @@ export default function ProfilePage() {
 
     try {
         await authApi.updateProfile({ full_name: fullName, phone_number: phoneNumber }, userToken);
+        await refreshUser();
         toast.success("Profile updated successfully!");
-        // Force refresh of user data? 
-        // Currently ApplicationContext loads user ONCE on mount/login.
-        // Ideally we should have a 'refreshUser' method. 
-        // For now, prompt reload or we can rely on next fetch.
-        // A simple reload works for MVP
-        window.location.reload(); 
     } catch (error: any) {
         toast.error(error.message || "Failed to update profile");
     } finally {
@@ -209,6 +222,30 @@ export default function ProfilePage() {
                         </CardContent>
                     </Card>
                 </div>
+
+                {/* App tutorial */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <BookOpen className="h-5 w-5" />
+                            App tutorial
+                        </CardTitle>
+                        <CardDescription>
+                            Show the in-app guide again on your next dashboard visit.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={tutorialLoading}
+                            onClick={handleShowTutorialAgain}
+                        >
+                            {tutorialLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BookOpen className="mr-2 h-4 w-4" />}
+                            Show tutorial again
+                        </Button>
+                    </CardContent>
+                </Card>
             </div>
         </main>
       </div>

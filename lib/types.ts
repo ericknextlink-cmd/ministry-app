@@ -21,6 +21,7 @@ export interface User {
   is_active: boolean;
   is_superuser: boolean;
   role: "user" | "admin" | "super_admin";
+  tutorials_completed?: boolean;
 }
 
 export type UserRole = "user" | "admin" | "super_admin";
@@ -94,6 +95,7 @@ export interface Document {
   document_type: string;
   filename: string;
   file_url: string;
+  previous_file_url?: string | null;
   uploaded_at: string;
   application_id: number;
 }

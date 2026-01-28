@@ -54,7 +54,7 @@ export default function DocumentsPage() {
              ) : activeApplication ? (
                  <DocumentsForm 
                     application={activeApplication} 
-                    onSuccess={() => router.push("/dashboard/review")} // Go to final review or success page
+                    onSuccess={() => router.push(`/dashboard/review?id=${activeApplication.id}`)}
                  />
              ) : (
                  <div className="text-center p-12 bg-white rounded-lg shadow dark:bg-gray-800">

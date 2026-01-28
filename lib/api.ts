@@ -252,7 +252,7 @@ export const authApi = {
       return api.get<User>("/users/me", token);
   },
 
-  updateProfile: async (data: { full_name?: string; phone_number?: string }, token: string) => {
+  updateProfile: async (data: { full_name?: string; phone_number?: string; tutorials_completed?: boolean }, token: string) => {
       return api.patch<User>("/users/me", data, token);
   },
   
@@ -326,6 +326,22 @@ export const applicationsApi = {
   },
   bulkPay: async (applicationIds: number[], token: string) => {
     return api.post<Application[]>("/applications/pay", { application_ids: applicationIds }, token);
+  },
+  getDetails: async <T>(applicationId: number, token: string) => {
+    return api.get<T>(`/applications/${applicationId}/details`, token);
+  },
+  submit: async (applicationId: number, token: string) => {
+    return api.post<Application>(`/applications/${applicationId}/submit`, {}, token);
+  },
+  getReusable: async (token: string): Promise<Application[]> => {
+    return api.get<Application[]>("/applications/reusable", token);
+  },
+  cloneData: async (applicationId: number, sourceApplicationId: number, token: string): Promise<Application> => {
+    return api.post<Application>(
+      `/applications/${applicationId}/clone`,
+      { source_application_id: sourceApplicationId },
+      token
+    );
   }
 };
 

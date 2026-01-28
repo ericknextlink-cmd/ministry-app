@@ -12,6 +12,7 @@ import { ApplicationDetails } from "@/components/application-details";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { formatApplicationId } from "@/lib/utils";
+import { applicationsApi } from "@/lib/api";
 
 import { ProgressTracker } from "@/components/progress-tracker";
 import { Application } from "@/lib/types";
@@ -19,7 +20,7 @@ import { Application } from "@/lib/types";
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated, applications, fetchApplications, createApplication, loading, error, getCompletionPercentage } = useApplication();
+  const { isAuthenticated, applications, fetchApplications, createApplication, loading, error, getCompletionPercentage, userToken } = useApplication();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(null);
@@ -28,6 +29,9 @@ function DashboardContent() {
   const [isNewAppModalOpen, setIsNewAppModalOpen] = useState(false);
   const [newAppType, setNewAppType] = useState<string>("");
   const [isCreating, setIsCreating] = useState(false);
+  const [reusableApplications, setReusableApplications] = useState<Application[]>([]);
+  const [selectedSourceApp, setSelectedSourceApp] = useState<number | null>(null);
+  const [loadingReusable, setLoadingReusable] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -66,6 +70,20 @@ function DashboardContent() {
     router.push("/dashboard/payment");
   };
 
+  // Fetch reusable applications when modal opens
+  useEffect(() => {
+    if (isNewAppModalOpen && userToken) {
+      setLoadingReusable(true);
+      applicationsApi.getReusable(userToken)
+        .then(setReusableApplications)
+        .catch((err) => {
+          console.error("Failed to fetch reusable applications:", err);
+          setReusableApplications([]);
+        })
+        .finally(() => setLoadingReusable(false));
+    }
+  }, [isNewAppModalOpen, userToken]);
+
   const handleCreateApplication = async () => {
     if (!newAppType) {
         toast.error("Please select a certificate type.");
@@ -78,10 +96,29 @@ function DashboardContent() {
             certificate_type: newAppType as Application["certificate_type"],
             description: `New ${newAppType} application` 
         });
-        toast.success("Application created successfully!");
+        
+        // If user selected to reuse data, clone it
+        if (selectedSourceApp && userToken) {
+          try {
+            await applicationsApi.cloneData(newApp.id, selectedSourceApp, userToken);
+            toast.success("Application created with data from previous application!");
+            // Refresh applications to get updated data
+            await fetchApplications();
+            // Navigate to review page (step 7) since data is complete
+            router.push(`/dashboard/review?id=${newApp.id}`);
+          } catch (cloneErr: any) {
+            console.error("Failed to clone data:", cloneErr);
+            toast.warning("Application created, but failed to copy data. You can fill it manually.");
+            setSelectedApplicationId(newApp.id);
+          }
+        } else {
+          toast.success("Application created successfully!");
+          setSelectedApplicationId(newApp.id);
+        }
+        
         setIsNewAppModalOpen(false);
         setNewAppType("");
-        setSelectedApplicationId(newApp.id); // Redirect to details view
+        setSelectedSourceApp(null);
     } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
         const errorMessage = error.message || "Failed to create application";
@@ -196,7 +233,7 @@ function DashboardContent() {
               >
                 {/* Action Bar */}
                 {canApplyMore && (
-                    <div className="flex justify-end mb-4">
+                    <div className="flex justify-end mb-4" data-tutorial="tutorial-apply">
                         <Button 
                             onClick={() => setIsNewAppModalOpen(true)}
                             className="bg-[#033783] hover:bg-[#022555] text-white flex items-center gap-2"
@@ -545,12 +582,56 @@ function DashboardContent() {
                         </button>
                     </div>
 
+                    {/* Reuse Data Option */}
+                    {reusableApplications.length > 0 && newAppType && (
+                        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                                Reuse Data from Previous Application
+                            </h3>
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                                You can reuse company information, directors, and documents from a previous application to skip filling the form.
+                            </p>
+                            {loadingReusable ? (
+                                <p className="text-sm text-gray-500">Loading previous applications...</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="reuseOption"
+                                            checked={selectedSourceApp === null}
+                                            onChange={() => setSelectedSourceApp(null)}
+                                            className="w-4 h-4 text-[#033783]"
+                                        />
+                                        <span className="text-sm text-gray-700 dark:text-gray-300">Start fresh (fill all information)</span>
+                                    </label>
+                                    {reusableApplications.map((app) => (
+                                        <label key={app.id} className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="reuseOption"
+                                                checked={selectedSourceApp === app.id}
+                                                onChange={() => setSelectedSourceApp(app.id)}
+                                                className="w-4 h-4 text-[#033783]"
+                                            />
+                                            <span className="text-sm text-gray-700 dark:text-gray-300">
+                                                Reuse from {app.certificate_type} application 
+                                                {app.company_name && ` (${app.company_name})`}
+                                            </span>
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     <div className="flex justify-end gap-3 mt-6">
                         <Button 
                             variant="outline" 
                             onClick={() => {
                                 setIsNewAppModalOpen(false);
                                 setNewAppType("");
+                                setSelectedSourceApp(null);
                             }}
                             disabled={isCreating}
                         >
@@ -561,7 +642,7 @@ function DashboardContent() {
                             disabled={!newAppType || isCreating}
                             className="bg-[#033783] text-white hover:bg-[#022555]"
                         >
-                            {isCreating ? "Creating..." : "Start Application"}
+                            {isCreating ? "Creating..." : selectedSourceApp ? "Create & Reuse Data" : "Start Application"}
                         </Button>
                     </div>
                 </div>
