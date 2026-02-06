@@ -28,7 +28,7 @@ export default function TestUpdatePage() {
   return (
       <div className="p-8 space-y-4">
           <h1 className="text-2xl font-bold">Debug Applications</h1>
-          <Button onClick={fetchApplications}>Refresh List</Button>
+          <Button onClick={() => fetchApplications()}>Refresh List</Button>
           
           <div className="grid gap-4">
               {applications.map(app => (

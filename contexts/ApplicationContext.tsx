@@ -24,7 +24,7 @@ interface ApplicationContextType {
   register: (data: { email: string; password: string; companyName?: string; phone?: string; companyRegistrationNumber?: string; companyType?: string }) => Promise<void>;
   logout: () => void;
   applications: Application[];
-  fetchApplications: () => Promise<void>;
+  fetchApplications: (tokenOverride?: string) => Promise<void>;
   refreshApplications: () => Promise<void>;
   refreshUser: () => Promise<void>;
   createApplication: (data: { certificate_type: Application["certificate_type"]; description?: string }) => Promise<Application>;
@@ -84,12 +84,14 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
     router.push('/auth?expired=true');
   }, [router]);
 
-  const fetchApplications = useCallback(async () => {
-    if (!userToken) return;
+  const fetchApplications = useCallback(async (tokenOverride?: string) => {
+    const token = tokenOverride ?? userToken;
+    if (!token) return;
 
     setError(null);
+    setLoading(true);
     try {
-      const fetchedApps = await api.get<Application[]>("/applications/", userToken);
+      const fetchedApps = await api.get<Application[]>("/applications/", token);
       setApplications(fetchedApps);
     } catch (err) {
       const error = err as Error;
@@ -97,6 +99,8 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
         console.error("Error fetching applications:", error);
         setError(error.message || "Failed to fetch applications");
       }
+    } finally {
+      setLoading(false);
     }
   }, [userToken]);
 
@@ -123,7 +127,7 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
     return unregister;
   }, []);
 
-  // Load token from localStorage on initial load
+  // Load token from localStorage on initial load and fetch applications so dashboard has data right away
   useEffect(() => {
     const initializeAuth = async () => {
       const token = localStorage.getItem("access_token");
@@ -134,6 +138,8 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
           setUserToken(token);
           setUser(userData);
           setIsAuthenticated(true);
+          // Fetch applications immediately so dashboard shows them without waiting for mount
+          await fetchApplications(token);
         } catch (error) {
           // Token is invalid - clear it but don't redirect here (let global handler do it)
           localStorage.removeItem("access_token");
@@ -146,6 +152,7 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
     };
 
     initializeAuth();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount; fetchApplications(token) uses passed token
   }, []);
 
   const login = useCallback(async (email: string, password: string): Promise<User | null> => {

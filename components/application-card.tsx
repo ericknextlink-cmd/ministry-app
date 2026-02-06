@@ -160,15 +160,18 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
       onClickHandler = onClick;
     }
 
+    const isLongLabel = label === "Pending Approval";
     return (
       <button
         type="button"
-        className="gradient-border-button rounded-full px-4 sm:px-6 md:px-8 lg:px-12 py-2 sm:py-2.5 text-xs sm:text-sm md:text-base font-medium text-white whitespace-nowrap min-w-fit"
+        className="gradient-border-button rounded-full px-4 py-2.5 sm:px-4 md:px-6 lg:px-4 xl:px-6 sm:py-2.5 text-white font-medium min-w-fit shrink-0"
         onClick={onClickHandler}
         style={buttonStyle}
         disabled={isDisabled}
       >
-        <span className="font-semibold">{label}</span>
+        <span className={`font-semibold whitespace-nowrap ${isLongLabel ? "text-xs sm:text-xs md:text-sm lg:text-base" : "text-sm sm:text-sm md:text-base"}`}>
+          {label}
+        </span>
       </button>
     );
   };
@@ -217,57 +220,66 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
   return (
     <motion.div
       layout
-      className="relative w-full"
+      className="relative w-full max-w-full flex flex-col"
       whileHover={{ scale: 1.02 }}
       transition={{ duration: 0.2 }}
     >
-      {/* Shape Background */}
-      <div className="relative h-[140px] sm:h-[160px] md:h-[169px] w-full cursor-pointer" onClick={!isApproved ? onClick : undefined}>
-        <Image
-          src={shape}
-          alt={name}
-          fill
-          className="object-contain"
-        />
+      {/* Shape: fixed height on mobile/tablet; aspect ratio on desktop - always fill container width */}
+      <div className="relative w-full min-w-0 h-[160px] sm:h-[180px] md:h-[200px] lg:aspect-[390/217] lg:h-auto lg:min-h-[200px] cursor-pointer shrink-0" onClick={!isApproved ? onClick : undefined}>
+        <div className="absolute inset-0 w-full h-full">
+          <Image
+            src={shape}
+            alt={name}
+            fill
+            sizes="(max-width: 1024px) 100vw, 33vw"
+            className="object-contain object-center w-full h-full"
+          />
+        </div>
 
-        {/* Content Overlay */}
-        <div className="absolute inset-0 flex flex-col justify-between p-4 sm:p-5 md:p-6">
-          {/* Top Section */}
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm sm:text-base md:text-lg font-semibold text-white flex items-center gap-1.5 sm:gap-2 truncate">
-                <span className="truncate">{name}</span>
-                <div className="relative h-3 w-3 sm:h-4 sm:w-4 shrink-0">
+        {/* Content Overlay - consistent placement like desktop */}
+        <div className="absolute inset-0 flex flex-col justify-between p-4 sm:p-5 md:p-5 lg:p-6">
+          {/* Top: title + checkmark */}
+          <div className="flex items-start justify-between gap-2 min-h-0">
+            <div
+              className={`flex-1 min-w-0 overflow-hidden ${
+                application.certificate_type === "building" || application.certificate_type === "civil"
+                  ? "scale-[0.82] sm:scale-[0.88] md:scale-[0.85] lg:scale-[0.88] xl:scale-[0.95] origin-top-left"
+                  : "scale-[0.9] sm:scale-[0.95] md:scale-[0.92] lg:scale-[0.95] xl:scale-[1] origin-top-left"
+              }`}
+            >
+              <h3 className="text-base sm:text-lg md:text-lg font-semibold text-white flex items-center gap-2">
+                <span className="truncate max-w-[85%] sm:max-w-none">{name}</span>
+                <div className="relative h-4 w-4 sm:h-5 sm:w-5 shrink-0">
                   <Image
                     src={icon}
-                    alt={`${name} icon`}
+                    alt=""
                     fill
                     className="object-contain"
-                    sizes="(max-width: 640px) 12px, 16px"
+                    sizes="(max-width: 640px) 16px, 20px"
                   />
                 </div>
               </h3>
             </div>
-            <div className="shrink-0">
-              <Image 
-                src="/circle-check.png" 
-                alt="Check" 
-                width={16} 
-                height={16} 
-                className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" 
+            <div className="shrink-0 w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center">
+              <Image
+                src="/circle-check.png"
+                alt=""
+                width={28}
+                height={28}
+                className="w-full h-full object-contain"
               />
             </div>
           </div>
 
-          {/* Bottom Section */}
+          {/* Bottom: status button - aligned like desktop */}
           <div className="flex items-end justify-start w-full">
             {getStatusButton()}
           </div>
         </div>
       </div>
 
-      {/* Status or Download Certificate */}
-      <div className="mt-2 sm:mt-3 px-2 sm:px-0">
+      {/* Status label or Download - always below card, no overlap */}
+      <div className="mt-3 sm:mt-4 w-full px-0 shrink-0">
       {isApproved && !isExpired ? (
         <button 
             type="button"
@@ -299,4 +311,3 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
     </motion.div>
   );
 }
-

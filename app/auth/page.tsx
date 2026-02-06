@@ -65,13 +65,20 @@ export default function AuthPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated (respect returnUrl for e.g. renewal callback)
   useEffect(() => {
     if (isAuthenticated && user) {
-      const isAdmin = user.is_superuser || 
-                     user.role === 'admin' || 
-                     user.role === 'super_admin';
-      
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const returnUrl = params.get("returnUrl");
+        if (returnUrl && returnUrl.startsWith("/")) {
+          router.push(returnUrl);
+          return;
+        }
+      }
+      const isAdmin = user.is_superuser ||
+                     user.role === "admin" ||
+                     user.role === "super_admin";
       if (isAdmin) {
         router.push("/admin");
       } else {
@@ -91,18 +98,23 @@ export default function AuthPage() {
       console.log("Logged in user:", loggedInUser); // Debug log
       toast.success("Login successful!");
       
+      const returnUrl =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("returnUrl")
+          : null;
+      if (returnUrl && returnUrl.startsWith("/")) {
+        router.push(returnUrl);
+        return;
+      }
       const isAdmin = loggedInUser && (
-          loggedInUser.is_superuser || 
-          loggedInUser.role === 'admin' || 
-          loggedInUser.role === 'super_admin'
+        loggedInUser.is_superuser ||
+        loggedInUser.role === "admin" ||
+        loggedInUser.role === "super_admin"
       );
-
       if (isAdmin) {
-          console.log("Redirecting to Admin");
-          router.push("/admin");
+        router.push("/admin");
       } else {
-          console.log("Redirecting to Dashboard");
-          router.push("/dashboard");
+        router.push("/dashboard");
       }
     } catch (err) {
        const error = err instanceof Error ? err : new Error(String(err));

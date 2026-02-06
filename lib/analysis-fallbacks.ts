@@ -80,8 +80,35 @@ async function parsePdfFromUrl(fileUrl: string, token?: string): Promise<{ text:
     }
   }
 
-  if (!rawText || rawText.length < 50) throw new Error('Insufficient text extracted from PDF');
-  return { text: rawText };
+  if (rawText && rawText.length >= 50) return { text: rawText };
+
+  // Scanned/image PDFs: try backend local OCR (PyMuPDF + Tesseract)
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+    const backendUrl = baseUrl.endsWith('/api/v1')
+      ? baseUrl
+      : baseUrl.endsWith('/api/v1/')
+        ? baseUrl.slice(0, -1)
+        : `${baseUrl}/api/v1`;
+    const res = await fetch(`${backendUrl}/analyze/document-extract`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ document_url: fullUrl, use_ocr: true }),
+    });
+    if (res.ok) {
+      const data = (await res.json()) as { extracted_text?: string };
+      if (data.extracted_text && data.extracted_text.trim().length >= 50) {
+        return { text: data.extracted_text.trim() };
+      }
+    }
+  } catch (ocrErr) {
+    console.warn(`${ANALYSIS_LOG} Backend OCR extract failed:`, ocrErr instanceof Error ? ocrErr.message : ocrErr);
+  }
+
+  throw new Error('Insufficient text extracted from PDF');
 }
 
 async function runLlmAnalysis(documentType: string, content: string): Promise<string> {
@@ -237,3 +264,5 @@ export async function analyzeDocumentFallback(
     return { success: false, error: err.message };
   }
 }
+
+

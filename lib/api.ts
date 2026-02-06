@@ -342,7 +342,15 @@ export const applicationsApi = {
       { source_application_id: sourceApplicationId },
       token
     );
-  }
+  },
+  /** Get a short-lived renewal token for the certificate renewal callback (public, no auth). */
+  getRenewalToken: async (applicationId: number): Promise<{ token: string }> => {
+    return api.get<{ token: string }>(`/applications/renewal-token?application_id=${applicationId}`);
+  },
+  /** Start renewal using token from PDF link (requires auth). */
+  renewFromToken: async (renewalToken: string, userToken: string): Promise<Application> => {
+    return api.post<Application>("/applications/renew-from-token", { token: renewalToken }, userToken);
+  },
 };
 
 // Admin specific functions
@@ -382,6 +390,9 @@ export const adminApi = {
   },
   unassignApplication: async (applicationId: number, token: string): Promise<Application> => {
     return api.post<Application>(`/admin/applications/${applicationId}/unassign`, {}, token);
+  },
+  saveApplicationAnalysis: async (applicationId: number, analysis: object, token: string): Promise<{ ok: boolean }> => {
+    return api.patch<{ ok: boolean }>(`/admin/applications/${applicationId}/analysis`, { analysis }, token);
   },
   listTemplates: async (token: string) => {
     return api.get<any[]>("/admin/templates", token);

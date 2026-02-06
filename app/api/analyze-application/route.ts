@@ -62,6 +62,9 @@ export async function POST(req: Request) {
       });
     }
 
+    const applicationCompanyName =
+      (applicationDetails.company_info as { company_name?: string } | null)?.company_name?.trim() || undefined;
+
     const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
     const backendUrl = baseUrl.endsWith('/api/v1') 
       ? baseUrl 
@@ -86,6 +89,7 @@ export async function POST(req: Request) {
               extract_tables: true,
               extract_forms: false,
               languages: ['eng'],
+              application_company_name: applicationCompanyName,
             }),
           });
 
@@ -149,11 +153,15 @@ export async function POST(req: Request) {
     const documentAnalysisResults: DocumentAnalysisResult[] = documents.map((doc: any, index: number) => {
       const analysisResult = documentAnalyses[index];
       if (analysisResult.status === 'fulfilled' && analysisResult.value.success) {
+        const value = analysisResult.value as { analysis: string; company_match?: boolean; company_match_detail?: string };
+        const companyMismatch = value.company_match === false;
         return {
           filename: doc.filename,
           documentType: doc.document_type,
-          status: 'valid' as const,
-          findings: [analysisResult.value.analysis],
+          status: companyMismatch ? ('needs_review' as const) : ('valid' as const),
+          findings: companyMismatch && value.company_match_detail
+            ? [value.company_match_detail, value.analysis]
+            : [value.analysis],
         };
       } else {
         return {
@@ -163,17 +171,26 @@ export async function POST(req: Request) {
           findings: [
             analysisResult.status === 'rejected'
               ? `Analysis failed: ${analysisResult.reason?.message || 'Unknown error'}`
-              : analysisResult.value.error || 'Analysis unavailable',
+              : (analysisResult as PromiseFulfilledResult<{ error?: string }>).value?.error || 'Analysis unavailable',
           ],
         };
       }
     });
 
+    const anyCompanyMismatch = documentAnalyses.some(
+      (r) => r.status === 'fulfilled' && (r.value as { company_match?: boolean }).company_match === false
+    );
     const allDocumentsValid = documentAnalysisResults.every((doc: DocumentAnalysisResult) => doc.status === 'valid');
     const hasFailures = failedAnalyses.length > 0;
 
     const analysisResult = {
-      verdict: allDocumentsValid ? 'approve' : hasFailures ? 'needs_review' : 'approve',
+      verdict: anyCompanyMismatch
+        ? 'needs_review'
+        : allDocumentsValid
+          ? 'approve'
+          : hasFailures
+            ? 'needs_review'
+            : 'approve',
       confidence: allDocumentsValid ? 0.9 : hasFailures ? 0.5 : 0.7,
       summary: combinedAnalysis || 'Document analysis completed. Review individual document findings for details.',
       detailedReport: {
@@ -195,10 +212,26 @@ export async function POST(req: Request) {
           findings: [],
         },
       },
-      recommendations: failedAnalyses.length > 0
-        ? ['Some documents could not be analyzed. Please verify document quality and try again.']
-        : [],
+      recommendations: anyCompanyMismatch
+        ? ['One or more documents do not belong to the application company. Do not approve until documents match the applicant company.']
+        : failedAnalyses.length > 0
+          ? ['Some documents could not be analyzed. Please verify document quality and try again.']
+          : [],
     };
+
+    // Persist analysis so the page can load it on next visit and avoid duplicate runs
+    try {
+      await fetch(`${backendUrl}/admin/applications/${applicationId}/analysis`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ analysis: analysisResult }),
+      });
+    } catch (saveErr) {
+      console.warn('[Analyze Application API] Failed to save analysis:', saveErr);
+    }
 
     return NextResponse.json({
       success: true,

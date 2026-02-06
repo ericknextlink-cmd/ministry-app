@@ -30,7 +30,8 @@ function DashboardContent() {
   const [newAppType, setNewAppType] = useState<string>("");
   const [isCreating, setIsCreating] = useState(false);
   const [reusableApplications, setReusableApplications] = useState<Application[]>([]);
-  const [selectedSourceApp, setSelectedSourceApp] = useState<number | null>(null);
+  /** When reusable apps exist: null = not yet chosen, 'fresh' = start fresh, number = reuse from that app id */
+  const [reuseChoice, setReuseChoice] = useState<null | "fresh" | number>(null);
   const [loadingReusable, setLoadingReusable] = useState(false);
 
   useEffect(() => {
@@ -52,9 +53,9 @@ function DashboardContent() {
     }
   }, [searchParams, applications]);
 
-  // Find all active applications for progress tracking
-  const activeApplications = [...applications]
-    .filter(app => ["draft", "pending_payment", "submitted", "in_review"].includes(app.status))
+  // Applications that are started or in progress (for progress bars: one bar per such application)
+  const applicationsWithProgress = [...applications]
+    .filter(app => ["draft", "pending_payment", "submitted", "in_review", "approved"].includes(app.status))
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
   const handleCardClick = (appId: number) => {
@@ -84,6 +85,11 @@ function DashboardContent() {
     }
   }, [isNewAppModalOpen, userToken]);
 
+  // Require explicit reuse choice when previous applications exist; reset when certificate type changes
+  useEffect(() => {
+    setReuseChoice(null);
+  }, [newAppType]);
+
   const handleCreateApplication = async () => {
     if (!newAppType) {
         toast.error("Please select a certificate type.");
@@ -97,14 +103,13 @@ function DashboardContent() {
             description: `New ${newAppType} application` 
         });
         
-        // If user selected to reuse data, clone it
-        if (selectedSourceApp && userToken) {
+        // If user chose to reuse data, clone it
+        const sourceAppId = typeof reuseChoice === "number" ? reuseChoice : null;
+        if (sourceAppId && userToken) {
           try {
-            await applicationsApi.cloneData(newApp.id, selectedSourceApp, userToken);
+            await applicationsApi.cloneData(newApp.id, sourceAppId, userToken);
             toast.success("Application created with data from previous application!");
-            // Refresh applications to get updated data
             await fetchApplications();
-            // Navigate to review page (step 7) since data is complete
             router.push(`/dashboard/review?id=${newApp.id}`);
           } catch (cloneErr: any) {
             console.error("Failed to clone data:", cloneErr);
@@ -118,7 +123,7 @@ function DashboardContent() {
         
         setIsNewAppModalOpen(false);
         setNewAppType("");
-        setSelectedSourceApp(null);
+        setReuseChoice(null);
     } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
         const errorMessage = error.message || "Failed to create application";
@@ -260,13 +265,13 @@ function DashboardContent() {
                   />
                 </div>
 
-                {/* Application Cards - Active */}
+                {/* Application Cards - full width: stacked on small, 2 cols md, 3 cols lg+ */}
                 {activeAppsList.length > 0 && (
-                    <div className="space-y-4">
+                    <div className="space-y-4 w-full max-w-full">
                         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Applications</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-full">
                             {activeAppsList.map((app) => (
-                                <div key={app.id} className="w-full">
+                                <div key={app.id} className="w-full min-w-0 max-w-full">
                                     <ApplicationCard
                                         application={app}
                                         onClick={() => handleCardClick(app.id)}
@@ -284,10 +289,10 @@ function DashboardContent() {
                     </div>
                 )}
 
-                {/* Dynamic Progress Trackers */}
-                {activeApplications.length > 0 && (
+                {/* Dynamic Progress Trackers - one bar per application that is started or in progress */}
+                {applicationsWithProgress.length > 0 && (
                     <div className="mt-12 mb-8 space-y-8">
-                        {activeApplications.map(app => (
+                        {applicationsWithProgress.map(app => (
                             <div key={app.id} className="p-6 bg-white dark:bg-gray-950 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm w-full overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                                 <div className="min-w-[600px]">
                                     <ProgressTracker application={app} />
@@ -582,14 +587,14 @@ function DashboardContent() {
                         </button>
                     </div>
 
-                    {/* Reuse Data Option */}
+                    {/* Reuse Data Option - require explicit choice before proceeding */}
                     {reusableApplications.length > 0 && newAppType && (
                         <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                             <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
                                 Reuse Data from Previous Application
                             </h3>
                             <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-                                You can reuse company information, directors, and documents from a previous application to skip filling the form.
+                                Choose one option below before continuing. You can reuse company information, directors, and documents from a previous application to skip filling the form.
                             </p>
                             {loadingReusable ? (
                                 <p className="text-sm text-gray-500">Loading previous applications...</p>
@@ -599,8 +604,8 @@ function DashboardContent() {
                                         <input
                                             type="radio"
                                             name="reuseOption"
-                                            checked={selectedSourceApp === null}
-                                            onChange={() => setSelectedSourceApp(null)}
+                                            checked={reuseChoice === "fresh"}
+                                            onChange={() => setReuseChoice("fresh")}
                                             className="w-4 h-4 text-[#033783]"
                                         />
                                         <span className="text-sm text-gray-700 dark:text-gray-300">Start fresh (fill all information)</span>
@@ -610,8 +615,8 @@ function DashboardContent() {
                                             <input
                                                 type="radio"
                                                 name="reuseOption"
-                                                checked={selectedSourceApp === app.id}
-                                                onChange={() => setSelectedSourceApp(app.id)}
+                                                checked={reuseChoice === app.id}
+                                                onChange={() => setReuseChoice(app.id)}
                                                 className="w-4 h-4 text-[#033783]"
                                             />
                                             <span className="text-sm text-gray-700 dark:text-gray-300">
@@ -620,6 +625,11 @@ function DashboardContent() {
                                             </span>
                                         </label>
                                     ))}
+                                    {reuseChoice === null && (
+                                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                                            Please select an option above to continue.
+                                        </p>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -631,7 +641,7 @@ function DashboardContent() {
                             onClick={() => {
                                 setIsNewAppModalOpen(false);
                                 setNewAppType("");
-                                setSelectedSourceApp(null);
+                                setReuseChoice(null);
                             }}
                             disabled={isCreating}
                         >
@@ -639,10 +649,18 @@ function DashboardContent() {
                         </Button>
                         <Button 
                             onClick={handleCreateApplication}
-                            disabled={!newAppType || isCreating}
+                            disabled={
+                              !newAppType ||
+                              isCreating ||
+                              Boolean(reusableApplications.length > 0 && newAppType && reuseChoice === null)
+                            }
                             className="bg-[#033783] text-white hover:bg-[#022555]"
                         >
-                            {isCreating ? "Creating..." : selectedSourceApp ? "Create & Reuse Data" : "Start Application"}
+                            {isCreating
+                              ? "Creating..."
+                              : typeof reuseChoice === "number"
+                                ? "Create & Reuse Data"
+                                : "Start Application"}
                         </Button>
                     </div>
                 </div>

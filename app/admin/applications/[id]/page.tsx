@@ -9,7 +9,7 @@ import { formatApplicationId } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, XCircle, Building, Users, FileText, Mail, Phone, AlertCircle, RefreshCw, Clock } from "lucide-react";
-import { AIAnalysisPanel } from "@/components/admin/ai-analysis-panel";
+import { AIAnalysisPanel, type AnalysisResult } from "@/components/admin/ai-analysis-panel";
 import { PDFViewerModal } from "@/components/admin/pdf-viewer-modal";
 
 // Types matching backend AdminApplicationDetails response
@@ -59,6 +59,7 @@ interface AdminApplicationDetailsType {
     documents: Document[];
     assigned_to: number | null;
     reviewer_email: string | null;
+    ai_analysis?: Record<string, unknown> | null;
 }
 
 
@@ -289,7 +290,11 @@ export default function AdminApplicationDetailPage({ params }: { params: Promise
 
       {/* AI Analysis Panel */}
       {userToken && (
-        <AIAnalysisPanel applicationId={applicationId} userToken={userToken} />
+        <AIAnalysisPanel
+          applicationId={applicationId}
+          userToken={userToken}
+          initialAnalysis={(applicationDetails?.ai_analysis as AnalysisResult | null) ?? null}
+        />
       )}
 
       {/* Application Details */}

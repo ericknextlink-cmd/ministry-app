@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -19,7 +19,7 @@ import {
 import { adminApi } from "@/lib/api";
 import { toast } from "sonner";
 
-interface AnalysisResult {
+export interface AnalysisResult {
   verdict: 'approve' | 'reject' | 'needs_review';
   confidence: number;
   summary: string;
@@ -53,12 +53,19 @@ interface AnalysisResult {
 interface AIAnalysisPanelProps {
   applicationId: number;
   userToken: string;
+  /** When the page loads, show stored analysis so we avoid duplicate runs; button becomes "Run new analysis" */
+  initialAnalysis?: AnalysisResult | null;
 }
 
-export function AIAnalysisPanel({ applicationId, userToken }: AIAnalysisPanelProps) {
+export function AIAnalysisPanel({ applicationId, userToken, initialAnalysis }: AIAnalysisPanelProps) {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['summary']));
+
+  // Load stored analysis when details are available (saves tokens; one canonical result per application)
+  useEffect(() => {
+    setAnalysis(initialAnalysis ?? null);
+  }, [applicationId, initialAnalysis]);
 
   const toggleSection = (section: string) => {
     const newExpanded = new Set(expandedSections);
@@ -184,7 +191,7 @@ export function AIAnalysisPanel({ applicationId, userToken }: AIAnalysisPanelPro
           ) : (
             <>
               <Brain className="h-4 w-4" />
-              Run Analysis
+              {analysis ? "Run new analysis" : "Run Analysis"}
             </>
           )}
         </Button>
