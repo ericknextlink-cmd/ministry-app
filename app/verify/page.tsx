@@ -56,7 +56,7 @@ function VerifyPageContent() {
   const [phone, setPhone] = useState("");
   const [otpCode, setOtpCode] = useState("");
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+  const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000/api/v1";
   
   // Check if modal should open from query param
   useEffect(() => {
@@ -99,7 +99,7 @@ function VerifyPageContent() {
     setIsLoading(true);
 
     try {
-        const res = await fetch(`${API_URL}/api/v1/applications/public/otp/send`, {
+        const res = await fetch(`${API_BASE}/applications/public/otp/send`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ phone_number: phone })
@@ -122,7 +122,7 @@ function VerifyPageContent() {
      if (!otpCode) return;
      setIsLoading(true);
      try {
-        const res = await fetch(`${API_URL}/api/v1/applications/public/otp/verify`, {
+        const res = await fetch(`${API_BASE}/applications/public/otp/verify`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ phone_number: phone, otp: otpCode })
@@ -163,7 +163,7 @@ function VerifyPageContent() {
     }
 
     try {
-        const res = await fetch(`${API_URL}/api/v1/applications/public/verify/${certId}?token=${verificationToken}`);
+        const res = await fetch(`${API_BASE}/applications/public/verify/${encodeURIComponent(certId)}?token=${encodeURIComponent(verificationToken)}`);
         
         if (!res.ok) {
             if (res.status === 404) {
@@ -193,7 +193,7 @@ function VerifyPageContent() {
             companyName: data.company_name,
             companyAddress: data.company_address || "N/A",
             expiryDate: data.expiry_date ? new Date(data.expiry_date).toLocaleDateString() : "N/A",
-            certificateNumber: `MWHE-${new Date().getFullYear()}-${data.id.toString().padStart(5, '0')}`,
+            certificateNumber: data.certificate_number || `MWHWR-${new Date().getFullYear()}-${String(data.id).padStart(5, "0")}`,
             status: status
         });
         

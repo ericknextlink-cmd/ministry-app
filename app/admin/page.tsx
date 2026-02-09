@@ -15,7 +15,7 @@ export default function AdminDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
-  const [applications, setApplications] = useState<Application[]>([]); // Explicitly type applications
+  const [applications, setApplications] = useState<Application[]>([]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -116,3 +116,5 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
+
