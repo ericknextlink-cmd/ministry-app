@@ -186,8 +186,9 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
         });
       } else {
         console.error("login: Unexpected login error", {
-          error: error.message,
+          message: error.message,
           email,
+          error: error,
           stack: error.stack
         });
       }

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { adminApi } from '@/lib/api';
-import { analyzeDocumentFallback } from '@/lib/analysis-fallbacks';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -99,27 +98,11 @@ export async function POST(req: Request) {
           }
 
           return await response.json();
-        } catch (primaryError) {
-          console.warn(`[Analyze Application API] Primary analysis failed for ${doc.filename}, trying fallbacks:`, primaryError instanceof Error ? primaryError.message : primaryError);
-          const fallback = await analyzeDocumentFallback(
-            doc.file_url,
-            doc.document_type,
-            doc.filename,
-            token
-          );
-          if (fallback.success && fallback.analysis) {
-            return {
-              success: true,
-              analysis: fallback.analysis,
-              extracted_text: '',
-              tables: [],
-              forms: [],
-              metadata: { source: 'fallback' },
-            };
-          }
+        } catch (error) {
+          console.warn(`[Analyze Application API] Primary analysis failed for ${doc.filename}:`, error instanceof Error ? error.message : error);
           return {
             success: false,
-            error: fallback.error ?? (primaryError instanceof Error ? primaryError.message : 'Unknown error'),
+            error: error instanceof Error ? error.message : 'Unknown error',
             filename: doc.filename,
             document_type: doc.document_type,
           };
@@ -192,7 +175,7 @@ export async function POST(req: Request) {
             ? 'needs_review'
             : 'approve',
       confidence: allDocumentsValid ? 0.9 : hasFailures ? 0.5 : 0.7,
-      summary: combinedAnalysis || 'Document analysis completed. Review individual document findings for details.',
+      summary: combinedAnalysis || (hasFailures ? 'Some documents could not be analyzed. Please try again later.' : 'Document analysis completed.'),
       detailedReport: {
         companyInfo: {
           status: applicationDetails.company_info ? 'complete' : 'incomplete',
