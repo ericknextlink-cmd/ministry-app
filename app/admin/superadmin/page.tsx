@@ -187,7 +187,7 @@ export default function SuperAdminUsersPage() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">#{user.id}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                                <Select value={user.role} onValueChange={(newRole) => handleRoleChange(user.id, newRole as User["role"])}>
+                                <Select value={user.role} onValueChange={(newRole) => handleRoleChange(Number(user.id), newRole as User["role"])}>
                                     <SelectTrigger className="w-[180px] capitalize">
                                         <SelectValue placeholder="Select role" />
                                     </SelectTrigger>
@@ -209,7 +209,7 @@ export default function SuperAdminUsersPage() {
                                 <Button 
                                     variant="outline" 
                                     size="sm" 
-                                    onClick={() => handleToggleActive(user.id, !user.is_active)}
+                                    onClick={() => handleToggleActive(Number(user.id), !user.is_active)}
                                     className="mr-2"
                                 >
                                     {user.is_active ? <X className="h-4 w-4 text-red-500" /> : <Check className="h-4 w-4 text-green-500" />}

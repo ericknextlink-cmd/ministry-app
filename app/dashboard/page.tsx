@@ -53,7 +53,7 @@ function DashboardContent() {
   const [isCreating, setIsCreating] = useState(false);
   const [reusableApplications, setReusableApplications] = useState<Application[]>([]);
   /** When reusable apps exist: null = not yet chosen, 'fresh' = start fresh, number = reuse from that app id */
-  const [reuseChoice, setReuseChoice] = useState<null | "fresh" | number>(null);
+  const [reuseChoice, setReuseChoice] = useState<null | "fresh" | string>(null);
   const [loadingReusable, setLoadingReusable] = useState(false);
 
   useEffect(() => {
@@ -127,7 +127,7 @@ function DashboardContent() {
         });
         
         // If user chose to reuse data, clone it
-        const sourceAppId = typeof reuseChoice === "number" ? reuseChoice : null;
+        const sourceAppId = reuseChoice !== null && reuseChoice !== "fresh" ? reuseChoice : null;
         if (sourceAppId && userToken) {
           try {
             await applicationsApi.cloneData(newApp.id, sourceAppId, userToken);
@@ -693,7 +693,7 @@ function DashboardContent() {
                         >
                             {isCreating
                               ? "Creating..."
-                              : typeof reuseChoice === "number"
+                              : (reuseChoice !== null && reuseChoice !== "fresh")
                                 ? "Create & Reuse Data"
                                 : "Start Application"}
                         </Button>

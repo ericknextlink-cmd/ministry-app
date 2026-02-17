@@ -20,7 +20,7 @@ export default function BulkPaymentPage() {
   const [processing, setProcessing] = useState(false);
   const [payableApps, setPayableApps] = useState<any[]>([]);
   const [incompleteApps, setIncompleteApps] = useState<any[]>([]); // New state
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   
   // Layout State
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -85,7 +85,7 @@ export default function BulkPaymentPage() {
     fetchApps();
   }, [userToken]);
 
-  const toggleSelection = (id: number) => {
+  const toggleSelection = (id: string) => {
     setSelectedIds(prev => 
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );

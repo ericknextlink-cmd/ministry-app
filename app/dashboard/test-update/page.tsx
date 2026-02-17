@@ -12,7 +12,7 @@ export default function TestUpdatePage() {
       fetchApplications();
   }, []);
 
-  const handleForceUpdate = async (id: number, status: string) => {
+  const handleForceUpdate = async (id: string, status: string) => {
       try {
           console.log(`Forcing status ${status} for app ${id}`);
           const res = await updateApplication(id, { status: status as any });
