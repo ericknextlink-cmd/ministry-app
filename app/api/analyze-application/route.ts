@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     }
 
     const applicationDetails = await adminApi.getAdminApplicationDetails<any>(
-      parseInt(appId),
+      appId,
       token
     );
 
@@ -89,6 +89,8 @@ export async function POST(req: Request) {
               extract_forms: false,
               languages: ['eng'],
               application_company_name: applicationCompanyName,
+              thread_id: String(applicationId),
+              // Analyzer should derive company name from document content, not from filename.
             }),
           });
 

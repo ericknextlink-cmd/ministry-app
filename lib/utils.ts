@@ -12,10 +12,10 @@ export function formatCurrency(amount: number, currency: string = "GHS") {
   }).format(amount)
 }
 
-export function formatApplicationId(id: number | undefined | null, createdAt?: string) {
-  if (!id) return "N/A";
-  
-  let year = "26"; // Default fallback
+export function formatApplicationId(id: number | string | undefined | null, createdAt?: string) {
+  if (id === undefined || id === null || id === "") return "N/A";
+  const idStr = String(id);
+  let year = "26";
   if (createdAt) {
     try {
       const date = new Date(createdAt);
@@ -26,6 +26,7 @@ export function formatApplicationId(id: number | undefined | null, createdAt?: s
       // ignore invalid date
     }
   }
-  
-  return `MWHWR/APP/${year}/${id.toString().padStart(4, "0")}`;
+  // UUID: show first 8 chars; legacy number: zero-pad
+  const isUuid = idStr.length === 36 && idStr.includes("-");
+  return isUuid ? `MWHWR/APP/${year}/${idStr.slice(0, 8)}` : `MWHWR/APP/${year}/${idStr.padStart(4, "0")}`;
 }

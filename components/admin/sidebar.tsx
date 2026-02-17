@@ -16,7 +16,8 @@ import {
   FileClock,
   FileSignature,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ListChecks
 } from "lucide-react";
 import { useApplication } from "@/contexts/ApplicationContext";
 
@@ -33,6 +34,7 @@ const navItems = [
   { name: "Payments", href: "/admin/payments", icon: CreditCard },
   { name: "Certification Reports", href: "/admin/reports", icon: BarChart },
   { name: "Renewals", href: "/admin/renewals", icon: RefreshCw },
+  { name: "Upgrade criteria", href: "/admin/upgrade-criteria", icon: ListChecks },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 

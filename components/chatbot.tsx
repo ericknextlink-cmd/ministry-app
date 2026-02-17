@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useSyncExternalStore } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, X, Send, Loader2, ArrowDown, History, Trash2 } from "lucide-react";
+import { X, Send, Loader2, ArrowDown, History, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 
@@ -88,6 +88,18 @@ function formatMessage(content: string): React.ReactNode {
   });
 }
 
+const MAX_INPUT_LENGTH = 2000;
+
+function sanitizeChatInput(raw: string): string {
+  if (typeof raw !== "string") return "";
+  let s = raw
+    .replace(/\0/g, "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
+  if (s.length > MAX_INPUT_LENGTH) s = s.slice(0, MAX_INPUT_LENGTH);
+  return s.trim();
+}
+
 export function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -116,6 +128,15 @@ export function Chatbot() {
     setConversations(updatedConversations);
     localStorage.setItem("chat_conversations", JSON.stringify(updatedConversations));
   };
+
+  const isMobile = useSyncExternalStore(
+    (cb) => {
+      window.addEventListener("resize", cb);
+      return () => window.removeEventListener("resize", cb);
+    },
+    () => (typeof window !== "undefined" ? window.innerWidth < 640 : false),
+    () => false
+  );
 
   const scrollToBottom = (behavior: "smooth" | "auto" = "smooth") => {
     messagesEndRef.current?.scrollIntoView({ behavior });
@@ -146,9 +167,10 @@ export function Chatbot() {
   };
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+    const sanitized = sanitizeChatInput(input);
+    if (!sanitized || isLoading) return;
 
-    const userMessage = input.trim();
+    const userMessage = sanitized;
     setInput("");
     // Reset textarea height
     if (inputRef.current) {
@@ -223,32 +245,53 @@ export function Chatbot() {
 
   return (
     <>
-      {/* Floating Orb Button */}
+      {/* Floating: pill (#033783) when closed (robot in white circle + text on desktop; smaller pill on mobile); circle with X when open */}
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 z-[10000] flex h-16 w-16 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl transition-all hover:bg-blue-700 hover:scale-110"
-        whileHover={{ scale: 1.1 }}
+        className="fixed bottom-8 right-14 z-10000 flex items-center justify-center overflow-hidden text-white shadow-xl transition-colors hover:opacity-90 scale-[1.2]"
+        style={{ backgroundColor: "#033783" }}
+        animate={{
+          width: isOpen ? 56 : isMobile ? 52 : 200,
+          height: isOpen ? 56 : isMobile ? 48 : 56,
+          borderRadius: isOpen ? "50%" : 9999,
+          paddingLeft: isOpen ? 0 : isMobile ? 12 : 20,
+          paddingRight: isOpen ? 0 : isMobile ? 12 : 20,
+        }}
+        transition={{ type: "spring", stiffness: 400, damping: 30 }}
         whileTap={{ scale: 0.95 }}
-        aria-label="Open chat"
+        aria-label={isOpen ? "Close chat" : "Open chat"}
       >
         <AnimatePresence mode="wait">
           {isOpen ? (
             <motion.div
               key="close"
-              initial={{ rotate: -90, opacity: 0 }}
-              animate={{ rotate: 0, opacity: 1 }}
-              exit={{ rotate: 90, opacity: 0 }}
+              initial={{ opacity: 0, rotate: -90 }}
+              animate={{ opacity: 1, rotate: 0 }}
+              exit={{ opacity: 0, rotate: 90 }}
+              transition={{ duration: 0.15 }}
+              className="flex items-center justify-center shrink-0"
             >
-              <X className="h-8 w-8" />
+              <X className="h-7 w-7" />
             </motion.div>
           ) : (
             <motion.div
               key="open"
-              initial={{ rotate: 90, opacity: 0 }}
-              animate={{ rotate: 0, opacity: 1 }}
-              exit={{ rotate: -90, opacity: 0 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="flex items-center gap-2 sm:gap-3 h-full"
             >
-              <MessageCircle className="h-8 w-8" />
+              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-white flex items-center justify-center shrink-0 relative right-4">
+                <Image src="/bot-image.svg" alt="" width={isMobile ? 28 : 32} height={isMobile ? 28 : 32} className="object-contain" />
+              </div>
+              <div className="hidden sm:flex flex-col items-start text-left">
+                <span className="text-sm font-semibold leading-tight">Support Bot</span>
+                <span className="flex items-center gap-1.5 text-xs font-medium text-white/90">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-400 shrink-0" />
+                  Online
+                </span>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -263,7 +306,7 @@ export function Chatbot() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[9999] bg-black/30 backdrop-blur-sm"
+              className="fixed inset-0 z-9999 bg-black/30 backdrop-blur-sm"
               onClick={() => setIsOpen(false)}
             />
 
@@ -273,7 +316,7 @@ export function Chatbot() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
-              className="fixed bottom-24 right-6 z-[10000] flex h-[70vh] max-h-[700px] w-[90vw] max-w-[440px] flex-col rounded-2xl border border-gray-200/50 bg-white/80 shadow-2xl backdrop-blur-xl dark:bg-gray-900/80 dark:border-gray-700/50"
+              className="fixed bottom-24 right-6 z-10000 flex h-[70vh] max-h-[700px] w-[90vw] max-w-[440px] flex-col rounded-2xl border border-gray-200/50 bg-white/80 shadow-2xl backdrop-blur-xl dark:bg-gray-900/80 dark:border-gray-700/50"
             >
               {/* Header */}
               <div className="flex items-center justify-between border-b border-gray-200/80 p-4 text-gray-900 dark:border-gray-700/80 dark:text-gray-100">
@@ -372,7 +415,7 @@ export function Chatbot() {
                     }`}
                   >
                     {message.role === "assistant" && (
-                      <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0">
+                      <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 shrink-0">
                         <Image src="/ministry-1.png" alt="Mavis" width={32} height={32} className="rounded-full" />
                       </div>
                     )}
@@ -398,7 +441,7 @@ export function Chatbot() {
                     animate={{ opacity: 1, y: 0 }}
                     className="flex justify-start gap-3"
                   >
-                    <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0">
+                    <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 shrink-0">
                       <Image src="/ministry-1.png" alt="Mavis" width={32} height={32} className="rounded-full" />
                     </div>
                     <div className="rounded-2xl bg-white dark:bg-gray-800 px-4 py-3 shadow-sm flex items-center">

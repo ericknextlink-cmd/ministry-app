@@ -1,23 +1,138 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Brain, 
-  Loader2, 
-  CheckCircle, 
-  XCircle, 
-  AlertCircle, 
-  ChevronDown, 
+import {
+  Brain,
+  Loader2,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  ChevronDown,
   ChevronUp,
   FileText,
   Building,
   Users,
-  Shield
+  Shield,
+  ArrowRight
 } from "lucide-react";
 import { adminApi } from "@/lib/api";
 import { toast } from "sonner";
+
+/** Format confidence: backend sends 0–1 decimal (e.g. 0.7) → show as 70%. */
+function confidencePercent(confidence: number): number {
+  if (typeof confidence !== "number" || Number.isNaN(confidence)) return 0;
+  if (confidence > 1) return Math.round(confidence);
+  return Math.round(confidence * 100);
+}
+
+/** Render markdown-like analysis text: **bold**, numbered lists with spacing, paragraphs. */
+function formatAnalysisText(content: string): React.ReactNode {
+  if (typeof content !== "string" || !content.trim()) return null;
+  // Strip markdown heading hashes so they are never shown in the UI.
+  const noHashes = content.replace(/#{1,6}\s+/g, "");
+  const lines = noHashes.split(/\r?\n/);
+  const out: React.ReactNode[] = [];
+  const numberedRegex = /^(\d+)\.\s+(.*)$/;
+
+  function renderLine(line: string, key: string): React.ReactNode {
+    const parts: (string | React.ReactNode)[] = [];
+    const boldRegex = /\*\*(.*?)\*\*/g;
+    let match;
+    let lastIndex = 0;
+    while ((match = boldRegex.exec(line)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(line.substring(lastIndex, match.index));
+      }
+      parts.push(<strong key={`${key}-b-${match.index}`}>{match[1]}</strong>);
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < line.length) parts.push(line.substring(lastIndex));
+    return <React.Fragment key={key}>{parts.length > 0 ? parts : line}</React.Fragment>;
+  }
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const lineKey = `line-${i}`;
+    const trimmed = line.trim();
+    const numMatch = trimmed.match(numberedRegex);
+
+    if (trimmed === "") {
+      out.push(<div key={lineKey} className="h-2" aria-hidden />);
+      i++;
+      continue;
+    }
+
+    if (numMatch) {
+      out.push(
+        <div key={lineKey} className="mt-4 first:mt-0">
+          <div className="font-semibold text-gray-900 dark:text-gray-100">
+            {renderLine(trimmed, lineKey)}
+          </div>
+          <div className="mt-2 space-y-1 text-sm text-gray-700 dark:text-gray-300">
+            {(() => {
+              const bodyLines: React.ReactNode[] = [];
+              i++;
+              while (i < lines.length && !lines[i].trim().match(numberedRegex)) {
+                const bodyLine = lines[i];
+                if (bodyLine.trim() === "") {
+                  bodyLines.push(<div key={`${lineKey}-body-${i}`} className="h-2" aria-hidden />);
+                } else {
+                  bodyLines.push(
+                    <div key={`${lineKey}-body-${i}`}>
+                      {renderLine(bodyLine, `${lineKey}-${i}`)}
+                    </div>
+                  );
+                }
+                i++;
+              }
+              return bodyLines;
+            })()}
+          </div>
+        </div>
+      );
+      continue;
+    }
+
+    const hashHeadingMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (hashHeadingMatch) {
+      const level = hashHeadingMatch[1].length;
+      const title = hashHeadingMatch[2].trim();
+      const headingClass =
+        level <= 1 ? "text-lg font-semibold mt-4 first:mt-0" :
+        level === 2 ? "text-base font-semibold mt-3" :
+        "text-sm font-semibold mt-2";
+      out.push(
+        <div key={lineKey} className={`${headingClass} text-gray-900 dark:text-gray-100`}>
+          {renderLine(title, lineKey)}
+        </div>
+      );
+      i++;
+      continue;
+    }
+
+    if (trimmed.startsWith("**") && trimmed.endsWith("**") && trimmed.slice(2, -2).indexOf("**") === -1) {
+      out.push(
+        <div key={lineKey} className="mt-3 font-semibold text-gray-900 dark:text-gray-100">
+          {trimmed.slice(2, -2)}
+        </div>
+      );
+      i++;
+      continue;
+    }
+
+    out.push(
+      <div key={lineKey} className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+        {renderLine(line, lineKey)}
+      </div>
+    );
+    i++;
+  }
+
+  return <div className="space-y-0.5">{out}</div>;
+}
 
 export interface AnalysisResult {
   verdict: 'approve' | 'reject' | 'needs_review';
@@ -51,7 +166,7 @@ export interface AnalysisResult {
 }
 
 interface AIAnalysisPanelProps {
-  applicationId: number;
+  applicationId: string;
   userToken: string;
   /** When the page loads, show stored analysis so we avoid duplicate runs; button becomes "Run new analysis" */
   initialAnalysis?: AnalysisResult | null;
@@ -207,10 +322,12 @@ export function AIAnalysisPanel({ applicationId, userToken, initialAnalysis }: A
                 <h3 className="text-lg font-bold capitalize">{analysis.verdict.replace('_', ' ')}</h3>
               </div>
               <Badge className={`${getVerdictBadgeColor(analysis.verdict)} text-white`}>
-                {analysis.confidence}% Confidence
+                {confidencePercent(analysis.confidence)}% Confidence
               </Badge>
             </div>
-            <p className="text-gray-700 dark:text-gray-300 mt-2">{analysis.summary}</p>
+            <div className="text-gray-700 dark:text-gray-300 mt-2 prose prose-sm dark:prose-invert max-w-none">
+              {formatAnalysisText(analysis.summary)}
+            </div>
           </div>
 
           {/* Summary Section */}
@@ -230,8 +347,8 @@ export function AIAnalysisPanel({ applicationId, userToken, initialAnalysis }: A
               )}
             </button>
             {expandedSections.has('summary') && (
-              <div className="p-4 pt-0 border-t">
-                <p className="text-gray-700 dark:text-gray-300">{analysis.summary}</p>
+              <div className="p-4 pt-0 border-t text-gray-700 dark:text-gray-300">
+                {formatAnalysisText(analysis.summary)}
               </div>
             )}
           </div>
@@ -257,11 +374,11 @@ export function AIAnalysisPanel({ applicationId, userToken, initialAnalysis }: A
             </button>
             {expandedSections.has('company') && (
               <div className="p-4 pt-0 border-t">
-                <ul className="space-y-2">
+                <ul className="space-y-3">
                   {analysis.detailedReport.companyInfo.findings.map((finding, idx) => (
                     <li key={idx} className="flex items-start gap-2 text-sm">
-                      <span className="text-blue-500 mt-1">•</span>
-                      <span className="text-gray-700 dark:text-gray-300">{finding}</span>
+                      <span className="text-blue-500 mt-1 shrink-0">•</span>
+                      <div className="text-gray-700 dark:text-gray-300 min-w-0">{formatAnalysisText(finding)}</div>
                     </li>
                   ))}
                 </ul>
@@ -290,11 +407,11 @@ export function AIAnalysisPanel({ applicationId, userToken, initialAnalysis }: A
             </button>
             {expandedSections.has('directors') && (
               <div className="p-4 pt-0 border-t">
-                <ul className="space-y-2">
+                <ul className="space-y-3">
                   {analysis.detailedReport.directors.findings.map((finding, idx) => (
                     <li key={idx} className="flex items-start gap-2 text-sm">
-                      <span className="text-blue-500 mt-1">•</span>
-                      <span className="text-gray-700 dark:text-gray-300">{finding}</span>
+                      <span className="text-blue-500 mt-1 shrink-0">•</span>
+                      <div className="text-gray-700 dark:text-gray-300 min-w-0">{formatAnalysisText(finding)}</div>
                     </li>
                   ))}
                 </ul>
@@ -325,11 +442,11 @@ export function AIAnalysisPanel({ applicationId, userToken, initialAnalysis }: A
               <div className="p-4 pt-0 border-t space-y-4">
                 <div>
                   <h4 className="font-medium mb-2">Overall Findings:</h4>
-                  <ul className="space-y-2">
+                  <ul className="space-y-3">
                     {analysis.detailedReport.documents.findings.map((finding, idx) => (
                       <li key={idx} className="flex items-start gap-2 text-sm">
-                        <span className="text-blue-500 mt-1">•</span>
-                        <span className="text-gray-700 dark:text-gray-300">{finding}</span>
+                        <span className="text-blue-500 mt-1 shrink-0">•</span>
+                        <div className="text-gray-700 dark:text-gray-300 min-w-0">{formatAnalysisText(finding)}</div>
                       </li>
                     ))}
                   </ul>
@@ -347,13 +464,13 @@ export function AIAnalysisPanel({ applicationId, userToken, initialAnalysis }: A
                             </Badge>
                           </div>
                           <p className="text-xs text-gray-500 mb-2">{doc.documentType}</p>
-                          <ul className="space-y-1">
+                          <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
                             {doc.findings.map((finding, fIdx) => (
-                              <li key={fIdx} className="text-xs text-gray-600 dark:text-gray-400">
-                                • {finding}
-                              </li>
+                              <div key={fIdx} className="pl-0">
+                                {formatAnalysisText(finding)}
+                              </div>
                             ))}
-                          </ul>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -384,11 +501,11 @@ export function AIAnalysisPanel({ applicationId, userToken, initialAnalysis }: A
             </button>
             {expandedSections.has('compliance') && (
               <div className="p-4 pt-0 border-t">
-                <ul className="space-y-2">
+                <ul className="space-y-3">
                   {analysis.detailedReport.compliance.findings.map((finding, idx) => (
                     <li key={idx} className="flex items-start gap-2 text-sm">
-                      <span className="text-blue-500 mt-1">•</span>
-                      <span className="text-gray-700 dark:text-gray-300">{finding}</span>
+                      <span className="text-blue-500 mt-1 shrink-0">•</span>
+                      <div className="text-gray-700 dark:text-gray-300 min-w-0">{formatAnalysisText(finding)}</div>
                     </li>
                   ))}
                 </ul>
@@ -404,11 +521,11 @@ export function AIAnalysisPanel({ applicationId, userToken, initialAnalysis }: A
                   <AlertCircle className="h-5 w-5 text-blue-600" />
                   Recommendations
                 </h3>
-                <ul className="space-y-2">
+                <ul className="space-y-3">
                   {analysis.recommendations.map((rec, idx) => (
                     <li key={idx} className="flex items-start gap-2 text-sm">
-                      <span className="text-blue-600 mt-1">→</span>
-                      <span className="text-gray-700 dark:text-gray-300">{rec}</span>
+                      <ArrowRight className="h-5 w-5 text-blue-600" />
+                      <div className="text-gray-700 dark:text-gray-300 min-w-0">{formatAnalysisText(rec)}</div>
                     </li>
                   ))}
                 </ul>

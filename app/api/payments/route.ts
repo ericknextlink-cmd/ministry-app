@@ -78,7 +78,7 @@ export async function GET(req: Request) {
       // Remove any undefined or null values that might cause issues
       const cleaned: any = {
         id: payment.id || 0,
-        application_id: payment.application_id || payment.applicationId || 0,
+        application_id: payment.application_id ?? payment.applicationId ?? "",
         amount: payment.amount || 0,
         status: payment.status || 'unknown',
         created_at: payment.created_at || payment.createdAt || new Date().toISOString(),

@@ -18,8 +18,8 @@ function RenewalContent() {
   const [status, setStatus] = useState<"idle" | "no-token" | "redirecting" | "renewing" | "done" | "error">("idle");
 
   const tokenFromUrl = searchParams.get("token");
-  const applicationIdParam = searchParams.get("application_id");
-  const applicationId = applicationIdParam ? parseInt(applicationIdParam, 10) : null;
+  const applicationIdParam = searchParams.get("application_id") ?? searchParams.get("application_uid");
+  const applicationId = applicationIdParam ?? null;
 
   const ensureRenewalToken = useCallback(async (): Promise<string | null> => {
     if (tokenFromUrl) {
@@ -28,7 +28,7 @@ function RenewalContent() {
       }
       return tokenFromUrl;
     }
-    if (applicationId && !isNaN(applicationId)) {
+    if (applicationId) {
       try {
         const { token } = await applicationsApi.getRenewalToken(applicationId);
         if (typeof window !== "undefined") {

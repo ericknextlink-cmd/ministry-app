@@ -1,27 +1,37 @@
 export interface Application {
-  id: number;
+  /** Application public ID (UUID, internal_uid). Use this in URLs and API calls. */
+  id: string;
   certificate_type: "electrical" | "building" | "plumbing" | "civil";
   certificate_class?: string;
   description?: string;
   status: "draft" | "submitted" | "pending_payment" | "in_review" | "approved" | "rejected" | "suspended" | "cancelled";
   current_step: number;
-  user_id: number;
+  user_id: string;
   expiry_date?: string;
   company_name?: string;
   user_email?: string;
+  certificate_number?: string;
   created_at: string;
   updated_at: string;
 }
 
 export interface User {
-  id: number;
+  id: number | string;
   email: string;
   full_name?: string;
   phone_number?: string;
+  /** From registration: company/organization name (stored as full_name). */
+  company_registration_number?: string;
+  company_type?: string;
   is_active: boolean;
   is_superuser: boolean;
   role: "user" | "admin" | "super_admin";
   tutorials_completed?: boolean;
+}
+
+/** Response from GET /users/me when backend includes applications. */
+export interface MeResponse extends User {
+  applications?: Application[];
 }
 
 export type UserRole = "user" | "admin" | "super_admin";
@@ -58,7 +68,7 @@ export interface CompanyInfoCreate {
   country: string;
   phone_number: string;
   email: string;
-  application_id: number;
+  application_id: string; // UUID of the application
 }
 
 export interface CompanyInfoUpdate {
@@ -87,7 +97,7 @@ export interface DirectorCreate {
   nationality: string;
   phone_number: string;
   email: string;
-  application_id: number;
+  application_id: string; // UUID of the application
 }
 
 export interface Document {

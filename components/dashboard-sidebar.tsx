@@ -15,7 +15,8 @@ import {
   FileText, 
   RotateCcw, 
   Info,
-  LogOut
+  LogOut,
+  Award
 } from "lucide-react";
 import { useApplication } from "@/contexts/ApplicationContext";
 
@@ -38,6 +39,7 @@ export function DashboardSidebar({ isOpen, isCollapsed, onClose, onToggleCollaps
 
   const navItems = [
     { name: "Dashboard", Icon: LayoutDashboard, href: "/dashboard" },
+    { name: "Certificates", Icon: Award, href: "/dashboard/certificates" },
     { name: "Payments", Icon: CreditCard, href: "/dashboard/bulk-payment" },
     { name: "Company Information", Icon: Building2, href: "/dashboard/company" },
     { name: "Directors Details", Icon: Users, href: "/dashboard/directors" },
@@ -72,7 +74,8 @@ export function DashboardSidebar({ isOpen, isCollapsed, onClose, onToggleCollaps
                 <Image
                   src="/ministry-1.png"
                   alt="Ministry Logo"
-                  fill
+                  width={100}
+                  height={100}
                   className="object-contain"
                 />
               </div>

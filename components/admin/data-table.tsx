@@ -37,7 +37,9 @@ export function RecentApplicationsTable({ data }: { data: any[] }) {
           ) : (
             data.map((app, index) => (
                 <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-150">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">#{app.id}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900 dark:text-white" title={app.id}>
+                  {app.internal_id != null ? app.internal_id : (typeof app.id === "string" && app.id.length > 12 ? `${app.id.slice(0, 8)}…` : app.id)}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{app.company_name || "-"}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">{app.user_email || "-"}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300 capitalize">{app.certificate_type}</td>

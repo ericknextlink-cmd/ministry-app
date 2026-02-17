@@ -12,7 +12,7 @@ export default function CompanyInfoPage() {
   const searchParams = useSearchParams();
   const idParam = searchParams.get("id");
   
-  const { isAuthenticated, applications, fetchApplications, loading } = useApplication();
+  const { isAuthenticated, applications, fetchApplications } = useApplication();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -24,13 +24,11 @@ export default function CompanyInfoPage() {
     }
   }, [isAuthenticated, router, fetchApplications]);
 
-  console.log("CompanyInfoPage Debug:", { loading, applicationsCount: applications.length, apps: applications });
-
   // Find the active application
   // If ID param is present, find THAT specific app.
   // Otherwise, fallback to the most recent active one.
   const activeApplication = idParam 
-    ? applications.find(app => app.id === parseInt(idParam))
+    ? applications.find(app => app.id === idParam)
     : [...applications]
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .find(app => 
@@ -51,12 +49,10 @@ export default function CompanyInfoPage() {
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50 dark:bg-gray-900">
           <div className="max-w-4xl mx-auto">
-             {loading ? (
-                 <div className="flex justify-center p-12">Loading...</div>
-             ) : activeApplication ? (
+             {activeApplication ? (
                  <CompanyInfoForm 
                     application={activeApplication} 
-                    onSuccess={() => router.push(`/dashboard/directors?id=${activeApplication.id}`)} // Next step with ID
+                    onSuccess={() => router.push(`/dashboard/payment?id=${activeApplication.id}`)}
                  />
              ) : (
                  <div className="text-center p-12 bg-white rounded-lg shadow dark:bg-gray-800">

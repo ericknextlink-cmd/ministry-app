@@ -5,36 +5,28 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { AlertCircle, Loader2 } from "lucide-react";
-import { useApplication } from "@/contexts/ApplicationContext"; // Import useApplication
-import { api } from "@/lib/api"; // Import api for download
-import { toast } from "sonner"; // Import toast for feedback
+import { useApplication } from "@/contexts/ApplicationContext";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
+import { Application } from "@/lib/types";
+import { isHighestClass, type CertificateType } from "@/lib/certificate-classes";
 
-// Define the type to match the backend data + frontend needs
-export interface ApplicationType {
-  id: number;
-  certificate_type: "electrical" | "building" | "plumbing" | "civil";
-  certificate_class?: string;
-  description?: string;
-  status: "draft" | "submitted" | "pending_payment" | "in_review" | "approved" | "rejected" | "suspended" | "cancelled";
-  current_step: number;
-  expiry_date?: string;
-  company_name?: string;
-  user_email?: string;
-  created_at: string;
-  certificate_number?: string;
-}
+export type ApplicationCardCertificateType = "electrical" | "building" | "plumbing";
 
 interface ApplicationCardProps {
-  application: ApplicationType;
+  /** Latest application for this type, or null to show "Apply" card. */
+  application: Application | null;
+  certificateType: ApplicationCardCertificateType;
   onClick: () => void;
 }
 
-export function ApplicationCard({ application, onClick }: ApplicationCardProps) {
-  const { userToken, user, renewApplication } = useApplication(); // Get userToken and user from context
+export function ApplicationCard({ application, certificateType, onClick }: ApplicationCardProps) {
+  const { userToken, renewApplication, createApplication, fetchApplications } = useApplication();
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isReapplying, setIsReapplying] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
   const router = useRouter();
   
-  // Helper to map certificate type to display data
   const getDisplayData = (type: string) => {
     switch (type) {
       case "building":
@@ -69,15 +61,54 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
     }
   };
 
-  const { name, shape, icon } = getDisplayData(application.certificate_type);
+  const typeForDisplay = application ? application.certificate_type : certificateType;
+  const { name, shape, icon } = getDisplayData(typeForDisplay);
 
-  // Helper to map backend status to UI status
+  // "Apply" card when no application for this type
+  if (!application) {
+    return (
+      <motion.div
+        layout
+        className="relative w-full max-w-full flex flex-col"
+        whileHover={{ scale: 1.02 }}
+        transition={{ duration: 0.2 }}
+      >
+        <div className="relative w-full min-w-0 h-[160px] sm:h-[180px] md:h-[200px] lg:aspect-[390/217] lg:h-auto lg:min-h-[200px] cursor-pointer shrink-0" onClick={onClick}>
+          <div className="absolute inset-0 w-full h-full">
+            <Image src={shape} alt={name} fill sizes="(max-width: 1024px) 100vw, 33vw" className="object-contain object-center w-full h-full" />
+          </div>
+          <div className="absolute inset-0 flex flex-col justify-between p-4 sm:p-5 md:p-5 lg:p-6">
+            <div className={`flex-1 min-w-0 overflow-hidden ${certificateType === "building" ? "scale-[0.82] sm:scale-[0.88] md:scale-[0.85] lg:scale-[0.88] xl:scale-[0.95] origin-top-left" : "scale-[0.9] sm:scale-[0.95] md:scale-[0.92] lg:scale-[0.95] xl:scale-[1] origin-top-left"}`}>
+              <h3 className="text-base sm:text-lg md:text-lg font-semibold text-white flex items-center gap-2">
+                <span className="truncate max-w-[85%] sm:max-w-none">{name}</span>
+                <div className="relative h-4 w-4 sm:h-5 sm:w-5 shrink-0">
+                  <Image src={icon} alt="" fill className="object-contain" sizes="(max-width: 640px) 16px, 20px" />
+                </div>
+              </h3>
+            </div>
+            <div className="flex items-end justify-start w-full">
+              <button type="button" className="gradient-border-button rounded-full px-4 py-2.5 sm:px-4 md:px-6 lg:px-4 xl:px-6 sm:py-2.5 text-white font-medium min-w-fit shrink-0" onClick={(e) => { e.stopPropagation(); onClick(); }}>
+                <span className="font-semibold whitespace-nowrap text-sm sm:text-sm md:text-base">Apply</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
   const isApproved = application.status === "approved";
   const isSuspended = application.status === "suspended";
   const isCancelled = application.status === "cancelled";
   const isRejected = application.status === "rejected";
   const isExpired = application.expiry_date ? new Date(application.expiry_date) < new Date() : false;
   const isInProgress = ["submitted", "pending_payment", "in_review", "draft"].includes(application.status);
+  const certTypeForClass = application.certificate_type as CertificateType;
+  const canUpgrade = Boolean(
+    isExpired &&
+    application.certificate_class &&
+    !isHighestClass(certTypeForClass, application.certificate_class)
+  );
   
   const handleDownloadCertificate = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -121,18 +152,53 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
       try {
           await renewApplication(application.id);
           toast.success("Renewal started! You can now continue the application.");
-          // Ideally trigger a refresh or callback here
       } catch (error) {
           const err = error instanceof Error ? error : new Error(String(error));
           toast.error(err.message || "Failed to start renewal.");
       }
-  }; // This closes the handleRenew function
+  };
+
+  const handleReapply = async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (isReapplying) return;
+      setIsReapplying(true);
+      try {
+          const newApp = await createApplication({ certificate_type: application.certificate_type });
+          await fetchApplications();
+          toast.success("New application started. You can continue from the dashboard.");
+          router.push(`/dashboard?id=${newApp.id}`);
+      } catch (error) {
+          const err = error instanceof Error ? error : new Error(String(error));
+          toast.error(err.message || "Failed to start new application.");
+      } finally {
+          setIsReapplying(false);
+      }
+  };
+
+  const handleUpgrade = async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (isUpgrading) return;
+      setIsUpgrading(true);
+      try {
+          const newApp = await createApplication({ certificate_type: application.certificate_type });
+          await fetchApplications();
+          toast.success("Upgrade application started. Select your new class to continue.");
+          const upgradeFrom = application.certificate_class ? encodeURIComponent(application.certificate_class) : "";
+          router.push(`/dashboard?id=${newApp.id}${upgradeFrom ? `&upgradeFrom=${upgradeFrom}` : ""}`);
+      } catch (error) {
+          const err = error instanceof Error ? error : new Error(String(error));
+          toast.error(err.message || "Failed to start upgrade.");
+      } finally {
+          setIsUpgrading(false);
+      }
+  };
 
   const getStatusButton = () => {
     let label = "";
     let onClickHandler: ((e: React.MouseEvent) => void) | undefined;
     let buttonStyle: React.CSSProperties = {};
     let isDisabled = false;
+    let showUpgradeButton = false;
 
     if (isSuspended) {
       label = "Suspended";
@@ -140,6 +206,7 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
     } else if (isExpired) {
       label = "Renew";
       onClickHandler = handleRenew;
+      showUpgradeButton = canUpgrade;
     } else if (isApproved) {
       label = "Approved";
       onClickHandler = onClick;
@@ -148,9 +215,10 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
       buttonStyle = { background: "#9CA3AF", border: "none", cursor: "default" };
       isDisabled = true;
     } else if (isRejected) {
-      label = "Rejected";
-      buttonStyle = { background: "#EF4444", border: "none", cursor: "default" };
-      isDisabled = true;
+      label = isReapplying ? "Starting…" : "Reapply";
+      onClickHandler = handleReapply;
+      buttonStyle = { background: "#EF4444", border: "none" };
+      isDisabled = isReapplying;
     } else if (application.status === "submitted" || application.status === "in_review") {
       label = "Pending Approval";
       buttonStyle = { opacity: 0.8, cursor: "default" };
@@ -162,17 +230,32 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
 
     const isLongLabel = label === "Pending Approval";
     return (
-      <button
-        type="button"
-        className="gradient-border-button rounded-full px-4 py-2.5 sm:px-4 md:px-6 lg:px-4 xl:px-6 sm:py-2.5 text-white font-medium min-w-fit shrink-0"
-        onClick={onClickHandler}
-        style={buttonStyle}
-        disabled={isDisabled}
-      >
-        <span className={`font-semibold whitespace-nowrap ${isLongLabel ? "text-xs sm:text-xs md:text-sm lg:text-base" : "text-sm sm:text-sm md:text-base"}`}>
-          {label}
-        </span>
-      </button>
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          className="gradient-border-button rounded-full px-4 py-2.5 sm:px-4 md:px-6 lg:px-4 xl:px-6 sm:py-2.5 text-white font-medium min-w-fit shrink-0"
+          onClick={onClickHandler}
+          style={buttonStyle}
+          disabled={isDisabled}
+        >
+          <span className={`font-semibold whitespace-nowrap ${isLongLabel ? "text-xs sm:text-xs md:text-sm lg:text-base" : "text-sm sm:text-sm md:text-base"}`}>
+            {label}
+          </span>
+        </button>
+        {showUpgradeButton && (
+          <button
+            type="button"
+            className="gradient-border-button rounded-full px-4 py-2.5 sm:px-4 md:px-6 lg:px-4 xl:px-6 sm:py-2.5 text-white font-medium min-w-fit shrink-0"
+            onClick={handleUpgrade}
+            disabled={isUpgrading}
+            style={{ border: "none" }}
+          >
+            <span className="font-semibold whitespace-nowrap text-sm sm:text-sm md:text-base">
+              {isUpgrading ? "Starting…" : "Upgrade"}
+            </span>
+          </button>
+        )}
+      </div>
     );
   };
 
@@ -259,6 +342,9 @@ export function ApplicationCard({ application, onClick }: ApplicationCardProps) 
                   />
                 </div>
               </h3>
+              {application.certificate_class && (
+                <p className="text-white/90 text-xs sm:text-sm mt-0.5 font-medium">{application.certificate_class}</p>
+              )}
             </div>
             <div className="shrink-0 w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center">
               <Image

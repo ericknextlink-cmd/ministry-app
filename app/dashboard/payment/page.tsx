@@ -54,25 +54,25 @@ function PaymentContent() {
     }
   }, [isAuthenticated, router, fetchApplications]);
 
-  // Determine the active application based on ID param or fallback to latest pending
-  // Exclude drafts that are already past payment (step >= 4)
-  const activeApplication = idParam 
-    ? applications.find(app => app.id === parseInt(idParam)) 
+  // Determine the active application: company done (step 4) and not yet paid (step < 5)
+  const activeApplication = idParam
+    ? applications.find(app => app.id === idParam)
     : [...applications]
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .find(app => 
-          app.status === "pending_payment" || 
-          (app.status === "draft" && app.current_step < 4)
+        .find(app =>
+          (app.status === "pending_payment" || (app.status === "draft" && app.current_step === 4)) &&
+          app.current_step < 5
         );
 
   // Find ALL pending applications with classes selected (excluding active one)
   useEffect(() => {
       if (!applications.length) return;
       
-      const others = applications.filter(app => 
-          app.id !== activeApplication?.id && // Not the current one
-          (app.status === 'pending_payment' || (app.status === 'draft' && app.current_step < 4)) && 
-          app.certificate_class // Must have class selected
+      const others = applications.filter(app =>
+          app.id !== activeApplication?.id &&
+          (app.status === 'pending_payment' || (app.status === 'draft' && app.current_step === 4)) &&
+          app.current_step < 5 &&
+          app.certificate_class
       );
       setOtherPendingApps(others);
       
@@ -95,38 +95,44 @@ function PaymentContent() {
           if (!token) throw new Error("No access token found");
 
           if (payMode === "all" && otherPendingApps.length > 0) {
-              // Consolidated Payment
+              // Consolidated Payment: backend generates invoices and emails for each
               const allIds = [activeApplication.id, ...otherPendingApps.map(a => a.id)];
               await applicationsApi.bulkPay(allIds, token);
+              await refreshApplications();
               toast.success("Consolidated Payment Successful!", {
-                  description: `Paid for ${allIds.length} applications.`
+                  description: `Invoices will be sent to your email for ${allIds.length} applications.`
               });
-              await refreshApplications();
-              router.push("/dashboard"); 
+              router.push(`/dashboard/payment/success?id=${activeApplication.id}`);
           } else {
-              // Single Payment
-              await updateApplication(activeApplication.id, {
-                  current_step: 4, 
-                  status: "draft" 
-              });
-              toast.success("Payment Successful!");
+              // Single Payment: backend generates invoice and emails it
+              await applicationsApi.bulkPay([activeApplication.id], token);
               await refreshApplications();
-              // Take directly to the forms for THIS application
-              router.push(`/dashboard?id=${activeApplication.id}`);
+              toast.success("Payment Successful! Invoice sent to your email.");
+              router.push(`/dashboard/payment/success?id=${activeApplication.id}`);
           }
       } catch (error: any) {
           console.error(error);
-          toast.error(error.message || "Payment failed");
+          const msg = error?.message ?? "Payment failed";
+          const isAlreadyPaid = typeof msg === "string" && /already\s+paid/i.test(msg);
+          if (isAlreadyPaid) {
+              toast.info("This application has already been paid.", {
+                  action: {
+                      label: "View invoice",
+                      onClick: () => router.push(`/dashboard/payment/success?id=${activeApplication.id}`),
+                  },
+              });
+          } else {
+              toast.error(msg);
+          }
       } finally {
           setIsProcessing(false);
       }
   };
 
-  // If active app is found but not in a payable state
-  // Check if it's pending OR a draft < step 4
+  // Payable when company is done (step 4) and not yet paid (step < 5)
   const isPayable = activeApplication && (
-      activeApplication.status === 'pending_payment' || 
-      (activeApplication.status === 'draft' && activeApplication.current_step < 4)
+      (activeApplication.status === 'pending_payment' || (activeApplication.status === 'draft' && activeApplication.current_step === 4)) &&
+      activeApplication.current_step < 5
   );
 
   const currentFee = activeApplication ? getFeeAmount(activeApplication.certificate_class) : 0;
@@ -258,11 +264,12 @@ function PaymentContent() {
 
                   {/* Instructions / Brand */}
                   <div className="hidden md:flex flex-col justify-center space-y-6">
-                      <div className="relative h-20 w-20">
+                      <div className="relative h-26 w-26 self-center">
                         <Image
                             src="/ministry-1.png"
                             alt="Ministry Logo"
-                            fill
+                            width={120}
+                            height={120}
                             className="object-contain"
                         />
                       </div>

@@ -110,7 +110,9 @@ export default function AdminRenewalsPage() {
                 ) : (
                     (activeTab === "expiring" ? expiringCerts : renewalRequests).map((app) => (
                         <tr key={app.id}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">#{app.id}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900 dark:text-white" title={String(app.id)}>
+                              {typeof app.id === "string" && app.id.length > 12 ? `${app.id.slice(0, 8)}…` : `#${app.id}`}
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {app.description || "No description"}
                             </td>

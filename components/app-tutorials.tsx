@@ -146,7 +146,7 @@ export function AppTutorials({ userToken, onComplete }: AppTutorialsProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[100] overflow-hidden"
+      className="fixed inset-0 z-100 overflow-hidden"
       aria-modal="true"
       role="dialog"
       aria-label="App tutorial"
@@ -173,7 +173,7 @@ export function AppTutorials({ userToken, onComplete }: AppTutorialsProps) {
         >
           {/* Arrow pointing up at the spotlight */}
           <div
-            className="absolute left-1/2 -translate-x-1/2 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[10px] border-b-white dark:border-b-gray-900"
+            className="absolute left-1/2 -translate-x-1/2 w-0 h-0 border-l-10 border-l-transparent border-r-10 border-r-transparent border-b-10 border-b-white dark:border-b-gray-900"
             style={{ bottom: "100%" }}
           />
           <p className="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -205,7 +205,7 @@ export function AppTutorials({ userToken, onComplete }: AppTutorialsProps) {
         </div>
       ) : (
         /* No target: centered modal (welcome / done) */
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 pointer-events-none">
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 pointer-events-none bottom-10">
           <div className="pointer-events-auto w-full max-w-md rounded-xl border bg-white p-5 shadow-xl dark:bg-gray-900 dark:border-gray-700">
             <p className="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">
               Step {stepIndex + 1} of {TUTORIAL_STEPS.length}

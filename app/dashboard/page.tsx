@@ -17,13 +17,35 @@ import { applicationsApi } from "@/lib/api";
 import { ProgressTracker } from "@/components/progress-tracker";
 import { Application } from "@/lib/types";
 
+/** Highest class per certificate type (user cannot start new app for this type if already at highest). */
+const HIGHEST_CLASS_BY_TYPE: Record<string, string> = {
+  electrical: "E1",
+  building: "D1K1",
+  plumbing: "G1",
+};
+
+function getLatestAppByType(apps: Application[], type: "electrical" | "building" | "plumbing"): Application | null {
+  const normalized = type === "building"
+    ? apps.filter((a) => a.certificate_type === "building" || a.certificate_type === "civil")
+    : apps.filter((a) => a.certificate_type === type);
+  if (normalized.length === 0) return null;
+  const sorted = [...normalized].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+  return sorted[0] ?? null;
+}
+
+function isAtHighestClass(type: "electrical" | "building" | "plumbing", certificateClass: string | undefined): boolean {
+  const highest = HIGHEST_CLASS_BY_TYPE[type];
+  if (!highest || !certificateClass) return false;
+  return (certificateClass || "").trim().toUpperCase() === highest.trim().toUpperCase();
+}
+
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, applications, fetchApplications, createApplication, loading, error, getCompletionPercentage, userToken } = useApplication();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(null);
+  const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
   
   // New Application Modal State
   const [isNewAppModalOpen, setIsNewAppModalOpen] = useState(false);
@@ -42,33 +64,34 @@ function DashboardContent() {
     }
   }, [isAuthenticated, router]); // Removed fetchApplications from deps to prevent loops
 
-  // Handle URL ID parameter
+  // Handle URL ?id= — application ID to focus (e.g. after payment). Do not run when new-app modal is open so user can finish choosing reuse/fresh.
   useEffect(() => {
+    if (isNewAppModalOpen) return;
     const idParam = searchParams.get("id");
     if (idParam && applications.length > 0) {
-        const id = parseInt(idParam);
-        if (!isNaN(id)) {
-            setSelectedApplicationId(id);
+        const id = idParam;
+        if (id) {
+          setSelectedApplicationId(id);
         }
     }
-  }, [searchParams, applications]);
+  }, [searchParams, applications, isNewAppModalOpen]);
 
   // Applications that are started or in progress (for progress bars: one bar per such application)
   const applicationsWithProgress = [...applications]
     .filter(app => ["draft", "pending_payment", "submitted", "in_review", "approved"].includes(app.status))
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
-  const handleCardClick = (appId: number) => {
+  const handleCardClick = (appId: string) => {
     setSelectedApplicationId(appId);
   };
 
-  const handleApplicationChange = (appId: number) => {
+  const handleApplicationChange = (appId: string | null) => {
     setSelectedApplicationId(appId);
   };
-  
+
   const handleSubmitApplication = () => {
-    // Navigate to payment page
-    router.push("/dashboard/payment");
+    if (!selectedApp) return;
+    router.push(`/dashboard/company?id=${selectedApp.id}`);
   };
 
   // Fetch reusable applications when modal opens
@@ -133,6 +156,11 @@ function DashboardContent() {
                 description: `You already have an active application for this certificate type. Please complete that one first.`,
                 duration: 5000,
             });
+        } else if (errorMessage.includes("already have the highest class")) {
+            toast.warning("Highest class already", {
+                description: errorMessage,
+                duration: 5000,
+            });
         } else {
             toast.error("Application Error", {
                 description: errorMessage
@@ -146,10 +174,10 @@ function DashboardContent() {
 
   const selectedApp = applications.find((app) => app.id === selectedApplicationId);
   
-  // Find all applications pending payment
-  const pendingPaymentApps = applications.filter(app => 
-    app.status === "pending_payment" || 
-    (app.status === "draft" && app.current_step < 4)
+  // Find all applications pending payment (company done = step 4, payment next)
+  const pendingPaymentApps = applications.filter(app =>
+    app.status === "pending_payment" ||
+    (app.status === "draft" && app.current_step === 4)
   );
   const [currentPaymentIndex, setCurrentPaymentIndex] = useState(0);
 
@@ -175,14 +203,6 @@ function DashboardContent() {
     setCurrentProgressIndex((prev) => (prev - 1 + progressApplications.length) % progressApplications.length);
   };
 
-  if (loading && applications.length === 0) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <p>Loading applications...</p>
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="flex h-screen items-center justify-center text-red-500">
@@ -202,8 +222,8 @@ function DashboardContent() {
   const inProgressApplications = visibleApplications.filter(app => ["in_review", "draft", "pending_payment", "submitted"].includes(app.status)).length;
   const approvedApplications = visibleApplications.filter(app => app.status === "approved").length;
 
-  // Show active and approved applications in the main list
-  const activeAppsList = visibleApplications.filter(app => ["draft", "submitted", "pending_payment", "in_review", "approved", "suspended"].includes(app.status));
+  // Show active, approved, and rejected applications in the main list (rejected so user can Reapply)
+  const activeAppsList = visibleApplications.filter(app => ["draft", "submitted", "pending_payment", "in_review", "approved", "suspended", "rejected"].includes(app.status));
 
   // Determine if we should show the "New Application" button
   // Rule: If applicant has applied for all 3 types (Building, Electrical, Plumbing), hide the button.
@@ -265,22 +285,24 @@ function DashboardContent() {
                   />
                 </div>
 
-                {/* Application Cards - full width: stacked on small, 2 cols md, 3 cols lg+ */}
-                {activeAppsList.length > 0 && (
-                    <div className="space-y-4 w-full max-w-full">
-                        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Applications</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-full">
-                            {activeAppsList.map((app) => (
-                                <div key={app.id} className="w-full min-w-0 max-w-full">
+                {/* Application Cards - only show a card for each type the user has applied for (no "Apply" card for types not applied) */}
+                <div className="space-y-4 w-full max-w-full">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Applications</h2>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6 w-full max-w-full">
+                        {(["building", "electrical", "plumbing"] as const)
+                            .map((type) => ({ type, latest: getLatestAppByType(visibleApplications, type) }))
+                            .filter(({ latest }) => latest != null)
+                            .map(({ type, latest }) => (
+                                <div key={type} className="w-full min-w-0 max-w-full">
                                     <ApplicationCard
-                                        application={app}
-                                        onClick={() => handleCardClick(app.id)}
+                                        application={latest!}
+                                        certificateType={type}
+                                        onClick={() => handleCardClick(latest!.id)}
                                     />
                                 </div>
                             ))}
-                        </div>
                     </div>
-                )}
+                </div>
 
                 {visibleApplications.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-12 text-gray-500">
@@ -445,14 +467,10 @@ function DashboardContent() {
                                 className="w-full bg-white hover:bg-blue-50 text-[#033783] font-bold py-6 text-lg rounded-xl shadow-lg transition-all active:scale-[0.98]"
                                 onClick={() => {
                                     const app = pendingPaymentApps[currentPaymentIndex];
-                                    if (app.status === 'pending_payment') {
-                                        router.push(`/dashboard/payment?id=${app.id}`);
-                                    } else {
-                                        router.push(`/dashboard?id=${app.id}`);
-                                    }
+                                    router.push(`/dashboard/payment?id=${app.id}`);
                                 }}
                             >
-                                {pendingPaymentApps[currentPaymentIndex].status === 'draft' ? 'Complete Now' : 'Pay Now'}
+                                Pay Now
                             </Button>
                             
                             {pendingPaymentApps.length > 1 && (
@@ -493,7 +511,8 @@ function DashboardContent() {
                   <ApplicationDetails
                     application={selectedApp}
                     onApplicationChange={handleApplicationChange}
-                    onSubmitApplication={handleSubmitApplication}
+                    onSubmitApplication={() => handleSubmitApplication()}
+                    upgradeFromClass={searchParams.get("upgradeFrom")}
                   />
                 )}
               </motion.div>
@@ -515,19 +534,27 @@ function DashboardContent() {
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Start New Application</h2>
                     <p className="text-gray-500 dark:text-gray-400 mb-6">Select the type of classification certificate you wish to apply for.</p>
                     
-                    {/* Certificate Type Selection Cards */}
+                    {/* Certificate Type Selection Cards - disable type when user already has highest class */}
+                    {(() => {
+                        const electricalDisabled = (() => { const a = getLatestAppByType(applications, "electrical"); return a ? isAtHighestClass("electrical", a.certificate_class) : false; })();
+                        const buildingDisabled = (() => { const a = getLatestAppByType(applications, "building"); return a ? isAtHighestClass("building", a.certificate_class) : false; })();
+                        const plumbingDisabled = (() => { const a = getLatestAppByType(applications, "plumbing"); return a ? isAtHighestClass("plumbing", a.certificate_class) : false; })();
+                        return (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                         {/* Electrical Works */}
                         <button
                             type="button"
-                            onClick={() => setNewAppType("electrical")}
+                            onClick={() => !electricalDisabled && setNewAppType("electrical")}
+                            disabled={electricalDisabled}
+                            title={electricalDisabled ? "You already have the highest class for Electrical Works." : undefined}
                             className={`relative p-4 rounded-xl border-2 transition-all text-left ${
+                                electricalDisabled ? "border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800/50 cursor-not-allowed opacity-60" :
                                 newAppType === "electrical"
                                     ? "border-[#033783] bg-blue-50 dark:bg-blue-900/20 shadow-md"
                                     : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800"
                             }`}
                         >
-                            {newAppType === "electrical" && (
+                            {newAppType === "electrical" && !electricalDisabled && (
                                 <div className="absolute top-2 right-2">
                                     <div className="h-6 w-6 rounded-full bg-[#033783] flex items-center justify-center">
                                         <Check className="h-4 w-4 text-white" />
@@ -536,21 +563,24 @@ function DashboardContent() {
                             )}
                             <div className="space-y-2">
                                 <h3 className="font-semibold text-gray-900 dark:text-gray-100">Electrical Works</h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">Category E</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">{electricalDisabled ? "Highest class already" : "Category E"}</p>
                             </div>
                         </button>
 
                         {/* Building & Civil Works */}
                         <button
                             type="button"
-                            onClick={() => setNewAppType("building")}
+                            onClick={() => !buildingDisabled && setNewAppType("building")}
+                            disabled={buildingDisabled}
+                            title={buildingDisabled ? "You already have the highest class for Building & Civil Works." : undefined}
                             className={`relative p-4 rounded-xl border-2 transition-all text-left ${
+                                buildingDisabled ? "border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800/50 cursor-not-allowed opacity-60" :
                                 newAppType === "building"
                                     ? "border-[#033783] bg-blue-50 dark:bg-blue-900/20 shadow-md"
                                     : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800"
                             }`}
                         >
-                            {newAppType === "building" && (
+                            {newAppType === "building" && !buildingDisabled && (
                                 <div className="absolute top-2 right-2">
                                     <div className="h-6 w-6 rounded-full bg-[#033783] flex items-center justify-center">
                                         <Check className="h-4 w-4 text-white" />
@@ -559,21 +589,24 @@ function DashboardContent() {
                             )}
                             <div className="space-y-2">
                                 <h3 className="font-semibold text-gray-900 dark:text-gray-100">Building & Civil Works</h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">Category DK</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">{buildingDisabled ? "Highest class already" : "Category DK"}</p>
                             </div>
                         </button>
 
                         {/* Plumbing Works */}
                         <button
                             type="button"
-                            onClick={() => setNewAppType("plumbing")}
+                            onClick={() => !plumbingDisabled && setNewAppType("plumbing")}
+                            disabled={plumbingDisabled}
+                            title={plumbingDisabled ? "You already have the highest class for Plumbing Works." : undefined}
                             className={`relative p-4 rounded-xl border-2 transition-all text-left ${
+                                plumbingDisabled ? "border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800/50 cursor-not-allowed opacity-60" :
                                 newAppType === "plumbing"
                                     ? "border-[#033783] bg-blue-50 dark:bg-blue-900/20 shadow-md"
                                     : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800"
                             }`}
                         >
-                            {newAppType === "plumbing" && (
+                            {newAppType === "plumbing" && !plumbingDisabled && (
                                 <div className="absolute top-2 right-2">
                                     <div className="h-6 w-6 rounded-full bg-[#033783] flex items-center justify-center">
                                         <Check className="h-4 w-4 text-white" />
@@ -582,10 +615,12 @@ function DashboardContent() {
                             )}
                             <div className="space-y-2">
                                 <h3 className="font-semibold text-gray-900 dark:text-gray-100">Plumbing Works</h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">Category G</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">{plumbingDisabled ? "Highest class already" : "Category G"}</p>
                             </div>
                         </button>
                     </div>
+                        );
+                    })()}
 
                     {/* Reuse Data Option - require explicit choice before proceeding */}
                     {reusableApplications.length > 0 && newAppType && (

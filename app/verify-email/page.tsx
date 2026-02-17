@@ -60,7 +60,8 @@ function VerifyEmailContent() {
               <Image
                 src="/ministry-1.png"
                 alt="Ministry Logo"
-                fill
+                width={120}
+                height={120}
                 className="object-contain p-2"
               />
             </div>

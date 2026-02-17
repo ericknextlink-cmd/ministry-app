@@ -52,7 +52,7 @@ export default function SettingsPage() {
           className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium leading-5 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2 ${
             activeTab === "profile"
               ? "bg-white shadow text-blue-700 dark:bg-gray-700 dark:text-blue-100"
-              : "text-gray-600 hover:bg-white/[0.12] hover:text-blue-800 dark:text-gray-400"
+              : "text-gray-600 hover:bg-white/12 hover:text-blue-800 dark:text-gray-400"
           }`}
         >
             <User className="h-4 w-4" />
@@ -65,7 +65,7 @@ export default function SettingsPage() {
             className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium leading-5 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2 ${
                 activeTab === "system"
                 ? "bg-white shadow text-blue-700 dark:bg-gray-700 dark:text-blue-100"
-                : "text-gray-600 hover:bg-white/[0.12] hover:text-blue-800 dark:text-gray-400"
+                : "text-gray-600 hover:bg-white/12 hover:text-blue-800 dark:text-gray-400"
             }`}
             >
                 <SettingsIcon className="h-4 w-4" />
@@ -148,3 +148,6 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+
+

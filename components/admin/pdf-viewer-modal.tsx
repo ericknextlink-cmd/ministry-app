@@ -38,14 +38,14 @@ export function PDFViewerModal({
     if (isOpen && documents.length > 0 && documents[currentIndex]) {
       const doc = documents[currentIndex];
       let url = doc.file_url;
-      
-      // Handle URL construction
+
       if (!url.startsWith('http://') && !url.startsWith('https://')) {
         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
         url = url.startsWith('/') ? `${backendUrl}${url}` : `${backendUrl}/${url}`;
       }
-      
-      setPdfUrl(url);
+
+      // Use preview proxy so PDF opens inline in iframe instead of triggering download
+      setPdfUrl(`/api/document-preview?url=${encodeURIComponent(url)}`);
     }
   }, [currentIndex, documents, isOpen]);
 
@@ -141,6 +141,7 @@ export function PDFViewerModal({
                 {pdfUrl ? (
                   <iframe
                     src={`${pdfUrl}#toolbar=1&navpanes=1&scrollbar=1`}
+                    referrerPolicy="no-referrer"
                     className="w-full h-full border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg bg-white"
                     title={currentDoc.filename}
                     allow="fullscreen"
@@ -165,41 +166,6 @@ export function PDFViewerModal({
                 <ChevronRight className="h-5 w-5" />
               </Button>
             </div>
-
-            {/* Footer Navigation */}
-            <footer className="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handlePrevious}
-                    disabled={!canGoPrevious}
-                    className="flex items-center gap-2"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    <span>Previous Document</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleNext}
-                    disabled={!canGoNext}
-                    className="flex items-center gap-2"
-                  >
-                    <span>Next Document</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onClose}
-                >
-                  Close
-                </Button>
-              </div>
-            </footer>
           </motion.div>
         </div>
       )}

@@ -156,10 +156,9 @@ export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
                 </div>
             )}
         </div>
-
         {/* Removed Plus and Download Buttons */}
-        
       </div>
     </header>
   );
 }
+

@@ -15,16 +15,19 @@ import {
 } from "@/components/ui/select";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ApplicationType } from "./application-card"; // Import shared type
-import { useApplication } from "@/contexts/ApplicationContext"; // Use context for updates
+import { Application } from "@/lib/types";
+import { useApplication } from "@/contexts/ApplicationContext";
 import { toast } from "sonner";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { api } from "@/lib/api";
+import { getClassesUpgradeTo, isHighestClass, type CertificateType } from "@/lib/certificate-classes";
 
 interface ApplicationDetailsProps {
-  application: ApplicationType;
-  onApplicationChange: (appId: number) => void;
+  application: Application;
+  onApplicationChange: (appId: string | null) => void;
   onSubmitApplication: () => void;
+  /** When set (e.g. from Upgrade flow), only classes the user can upgrade to are shown. */
+  upgradeFromClass?: string | null;
 }
 
 // Data mapping for certificate classes and fees
@@ -66,41 +69,59 @@ export function ApplicationDetails({
   application,
   onApplicationChange,
   onSubmitApplication,
+  upgradeFromClass,
 }: ApplicationDetailsProps) {
   const router = useRouter();
-  const { updateApplication, cancelApplication, renewApplication, userToken } = useApplication();
+  const { updateApplication, cancelApplication, renewApplication, createApplication, fetchApplications, userToken, applications } = useApplication();
+
+  // For upgrade flow: disable the class the user already has for this type (from another application)
+  const otherSameType = applications.filter(
+    (a) => a.id !== application.id && (a.certificate_type === application.certificate_type || (a.certificate_type === "civil" && application.certificate_type === "building") || (a.certificate_type === "building" && application.certificate_type === "civil"))
+  );
+  const existingClassToDisable = (() => {
+    const withClass = otherSameType.filter((a) => a.certificate_class).sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+    return withClass[0]?.certificate_class ?? null;
+  })();
   
   // Get data for this certificate type
   const certData = certificateData[application.certificate_type as keyof typeof certificateData] || certificateData["building"];
+  const certType = application.certificate_type as CertificateType;
+  const upgradeClassIds = upgradeFromClass ? getClassesUpgradeTo(certType, upgradeFromClass) : [];
+  const classesToShow = upgradeClassIds.length > 0
+    ? certData.classes.filter((c) => upgradeClassIds.includes(c.id))
+    : certData.classes;
+  const effectiveClasses = classesToShow.length > 0 ? classesToShow : certData.classes;
+  const defaultClass = effectiveClasses[0]?.id ?? certData.classes[0].id;
   
   // State for class selection
-  const [selectedClass, setSelectedClass] = useState(application.certificate_class || certData.classes[0].id);
+  const [selectedClass, setSelectedClass] = useState(application.certificate_class || defaultClass);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isRenewing, setIsRenewing] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // Update selected class if application changes
+  // Update selected class if application changes (or upgradeFromClass: use first upgrade class when no class set)
   useEffect(() => {
     if (application.certificate_class) {
-        setSelectedClass(application.certificate_class);
+      setSelectedClass(application.certificate_class);
     } else {
-        setSelectedClass(certData.classes[0].id);
+      setSelectedClass(defaultClass);
     }
-  }, [application, certData]);
+  }, [application, certData, defaultClass]);
   
   const handleSubmit = async () => {
     if (isConfirmed) {
       setIsSubmitting(true);
       try {
-        await updateApplication(application.id, {
+        await updateApplication(String(application.id), {
             certificate_class: selectedClass,
-            status: "pending_payment", // Move to next step
-            current_step: 3 // Assuming 3 is payment
+            status: "draft",
+            current_step: 2, // Next step is company info (3), then payment (4)
         });
-        toast.success("Class selected successfully!");
+        toast.success("Class selected. Next: company information.");
         onSubmitApplication();
       } catch (error) {
         toast.error("Failed to update application.");
@@ -118,9 +139,9 @@ export function ApplicationDetails({
   const handleConfirmCancel = async () => {
       setIsCancelling(true);
       try {
-          await cancelApplication(application.id);
+          await cancelApplication(String(application.id));
           toast.success("Application cancelled successfully.");
-          onApplicationChange(0); // Close details view or similar
+          onApplicationChange(null);
       } catch (error: any) {
           toast.error(error.message || "Failed to cancel application.");
       } finally {
@@ -161,13 +182,28 @@ export function ApplicationDetails({
   const handleRenew = async () => {
       setIsRenewing(true);
       try {
-          await renewApplication(application.id);
+          await renewApplication(String(application.id));
           toast.success("Renewal started! You can now continue the application.");
           // Ideally trigger a refresh or callback here, for now relying on context update
       } catch (error: any) {
           toast.error(error.message || "Failed to start renewal.");
       } finally {
           setIsRenewing(false);
+      }
+  };
+
+  const handleUpgrade = async () => {
+      setIsUpgrading(true);
+      try {
+          const newApp = await createApplication({ certificate_type: application.certificate_type });
+          await fetchApplications();
+          toast.success("Upgrade application started. Select your new class to continue.");
+          const fromClass = application.certificate_class ? encodeURIComponent(application.certificate_class) : "";
+          router.push(`/dashboard?id=${newApp.id}${fromClass ? `&upgradeFrom=${fromClass}` : ""}`);
+      } catch (error: any) {
+          toast.error(error?.message || "Failed to start upgrade.");
+      } finally {
+          setIsUpgrading(false);
       }
   };
 
@@ -216,6 +252,7 @@ export function ApplicationDetails({
 
   const isExpired = application.expiry_date ? new Date(application.expiry_date) < new Date() : false;
   const isSuspended = application.status === "suspended";
+  const canUpgradeExpired = Boolean(isExpired && application.certificate_class && !isHighestClass(certType, application.certificate_class));
 
   return (
     <motion.div
@@ -276,21 +313,26 @@ export function ApplicationDetails({
 
       {/* Class Type Dropdown */}
       <Select value={selectedClass} onValueChange={setSelectedClass} disabled={application.status !== "draft" || application.current_step >= 3}>
-        <SelectTrigger className="flex w-full items-center justify-between rounded-full border bg-white px-6 py-3 h-10 shadow-sm dark:bg-gray-950 [&>svg]:hidden">
+        <SelectTrigger className="flex w-full items-center justify-between rounded-full border bg-white px-6 py-8 h-10 shadow-sm dark:bg-gray-950 [&>svg]:hidden">
           <span className="text-base font-medium">
              {application.status !== "draft" || application.current_step >= 3 ? selectedClassData.label : "Select Class Type"}
           </span>
           <div className="flex items-center gap-3">
             <SelectValue className="relaive -left-40" />
-            <div className="pointer-events-none flex h-8 w-8 items-center justify-center rounded-md border-2 border-black bg-white dark:bg-gray-800">
-              <ChevronDown className="h-6 w-6" />
+            <div className="pointer-events-none flex h-8 w-8 items-center justify-center rounded-md bg-white dark:bg-gray-800">
+              <ChevronDown className="h-8 w-8" />
             </div>
           </div>
         </SelectTrigger>
         <SelectContent>
-          {certData.classes.map((classItem) => (
-            <SelectItem key={classItem.id} value={classItem.id}>
+          {effectiveClasses.map((classItem) => (
+            <SelectItem
+              key={classItem.id}
+              value={classItem.id}
+              disabled={!upgradeFromClass && existingClassToDisable != null && (classItem.id || "").trim().toUpperCase() === (existingClassToDisable || "").trim().toUpperCase()}
+            >
               {classItem.label}
+              {!upgradeFromClass && existingClassToDisable != null && (classItem.id || "").trim().toUpperCase() === (existingClassToDisable || "").trim().toUpperCase() ? " (current class)" : ""}
             </SelectItem>
           ))}
         </SelectContent>
@@ -420,21 +462,41 @@ export function ApplicationDetails({
                           <AlertCircle className="h-5 w-5 text-red-600" />
                           <p className="text-sm font-medium">Your certificate has expired. Please renew to continue operations.</p>
                       </div>
-                      <Button
-                        size="lg"
-                        onClick={handleRenew}
-                        disabled={isRenewing}
-                        className="rounded-full bg-red-600 px-12 text-white hover:bg-red-700 flex items-center gap-2"
-                      >
-                         {isRenewing ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              Starting Renewal...
-                            </>
-                          ) : (
-                            "Renew Certificate"
-                          )}
-                      </Button>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <Button
+                          size="lg"
+                          onClick={handleRenew}
+                          disabled={isRenewing}
+                          className="rounded-full bg-red-600 px-12 text-white hover:bg-red-700 flex items-center gap-2"
+                        >
+                           {isRenewing ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Starting Renewal...
+                              </>
+                            ) : (
+                              "Renew Certificate"
+                            )}
+                        </Button>
+                        {canUpgradeExpired && (
+                          <Button
+                            size="lg"
+                            onClick={handleUpgrade}
+                            disabled={isUpgrading}
+                            variant="outline"
+                            className="rounded-full px-12 border-2 border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                          >
+                            {isUpgrading ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Starting...
+                              </>
+                            ) : (
+                              "Upgrade Class"
+                            )}
+                          </Button>
+                        )}
+                      </div>
                   </>
               )}
 
@@ -483,7 +545,8 @@ export function ApplicationDetails({
       )}
 
       {/* If already past draft, maybe show a status message or "Proceed to Payment" if pending */}
-      {(application.status === "pending_payment" && application.current_step < 4) && (
+      {/* After class selected (step 2): next is company info. After company (step 4): next is payment. */}
+      {(application.current_step >= 2 && application.current_step < 4) && (
          <div className="flex justify-end gap-4">
             <Button
                 variant="destructive"
@@ -495,6 +558,24 @@ export function ApplicationDetails({
             <Button
             size="lg"
             onClick={onSubmitApplication}
+            className="rounded-full bg-green-600 px-12 text-white hover:bg-green-700"
+            >
+            {application.current_step === 2 ? "Continue to Company Info" : "Continue"}
+            </Button>
+        </div>
+      )}
+      {application.current_step === 4 && (
+         <div className="flex justify-end gap-4">
+            <Button
+                variant="destructive"
+                onClick={handleCancelClick}
+                disabled={isCancelling}
+            >
+                {isCancelling ? "Cancelling..." : "Cancel Application"}
+            </Button>
+            <Button
+            size="lg"
+            onClick={() => router.push(`/dashboard/payment?id=${application.id}`)}
             className="rounded-full bg-green-600 px-12 text-white hover:bg-green-700"
             >
             Proceed to Payment

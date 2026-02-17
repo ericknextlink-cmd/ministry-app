@@ -45,7 +45,7 @@ interface Document {
 }
 
 interface AdminApplicationDetailsType {
-    id: number;
+    id: string; // Application public ID (UUID, internal_uid)
     certificate_type: string;
     certificate_class?: string;
     description?: string;
@@ -74,7 +74,7 @@ export default function AdminApplicationDetailPage({ params }: { params: Promise
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [selectedDocumentIndex, setSelectedDocumentIndex] = useState(0);
 
-  const applicationId = parseInt(id);
+  const applicationId = id;
 
   const fetchApplicationDetails = useCallback(async () => {
     const canView = user?.is_superuser || user?.role === 'admin' || user?.role === 'super_admin';
@@ -85,7 +85,7 @@ export default function AdminApplicationDetailPage({ params }: { params: Promise
       return;
     }
     
-    if (isNaN(applicationId)) {
+    if (!applicationId) {
         toast.error("Invalid Application ID");
         router.push("/admin");
         return;
@@ -208,7 +208,7 @@ export default function AdminApplicationDetailPage({ params }: { params: Promise
           </div>
           <div>
               {isUnassigned && (
-                  <Button size="sm" onClick={handleAssign} disabled={assigning}>
+                  <Button size="sm" onClick={handleAssign} disabled={assigning} className="bg-blue-600 hover:bg-blue-700 text-white">
                       {assigning ? "Assigning..." : "Assign to Me"}
                   </Button>
               )}

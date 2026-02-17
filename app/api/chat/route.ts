@@ -11,16 +11,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ response: "Please type a message." }, { status: 400 });
     }
 
-    // AI Service Configuration
+    // AI Service Configuration — use same secret as AI backend's SERVICE_API_KEY
     const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:7860';
-    const AI_SERVICE_API_KEY = process.env.SERVICE_API_KEY || 'mwhwr_secret_microservice_key_2026';
+    const apiKey = process.env.AI_SERVICE_API_KEY || process.env.SERVICE_API_KEY || 'mwhwr_secret_microservice_key_2026';
 
-    // Call the external AI Microservice
     const response = await fetch(`${AI_SERVICE_URL}/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': AI_SERVICE_API_KEY,
+        'x-api-key': apiKey,
       },
       body: JSON.stringify({
         message: message.trim(),

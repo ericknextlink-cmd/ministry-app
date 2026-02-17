@@ -87,7 +87,7 @@ export default function ReviewPage() {
     setLoading(true);
     try {
       const data = await applicationsApi.getDetails<ApplicationDetails>(
-        parseInt(applicationId),
+        applicationId,
         userToken
       );
       setDetails(data);
@@ -103,7 +103,7 @@ export default function ReviewPage() {
     if (!userToken || !applicationId) return;
     setSubmitting(true);
     try {
-      await applicationsApi.submit(parseInt(applicationId), userToken);
+      await applicationsApi.submit(applicationId, userToken);
       toast.success("Application submitted successfully!");
       await fetchApplications();
       router.push("/dashboard/review?submitted=true");

@@ -12,7 +12,7 @@ export default function DocumentsPage() {
   const searchParams = useSearchParams();
   const idParam = searchParams.get("id");
 
-  const { isAuthenticated, applications, fetchApplications, loading } = useApplication();
+  const { isAuthenticated, applications, fetchApplications } = useApplication();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -28,7 +28,7 @@ export default function DocumentsPage() {
   // If ID param is present, find THAT specific app.
   // Otherwise, fallback to the most recent active one.
   const activeApplication = idParam 
-    ? applications.find(app => app.id === parseInt(idParam))
+    ? applications.find(app => app.id === idParam)
     : [...applications]
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .find(app => 
@@ -49,9 +49,7 @@ export default function DocumentsPage() {
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50 dark:bg-gray-900">
           <div className="max-w-4xl mx-auto">
-             {loading ? (
-                 <div className="flex justify-center p-12">Loading...</div>
-             ) : activeApplication ? (
+             {activeApplication ? (
                  <DocumentsForm 
                     application={activeApplication} 
                     onSuccess={() => router.push(`/dashboard/review?id=${activeApplication.id}`)}

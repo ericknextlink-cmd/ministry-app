@@ -57,7 +57,8 @@ export default function RenewalsPage() {
                             <ApplicationCard
                                 key={app.id}
                                 application={app}
-                                onClick={() => {}} // No detail view needed for expired specifically, or could open details
+                                certificateType={app.certificate_type === "civil" ? "building" : app.certificate_type}
+                                onClick={() => {}}
                             />
                         ))}
                     </div>

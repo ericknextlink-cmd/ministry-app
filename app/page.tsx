@@ -57,10 +57,10 @@ export default function Home() {
 
       <main className="flex-1">
         <div className="container mx-auto px-4 py-8 md:py-12 lg:py-16">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 lg:grid-rows-2 gap-12 items-start">
             
-            {/* Left Column: Carousel */}
-            <div className="space-y-8 order-2 lg:order-1">
+            {/* Carousel + quotes — mobile: 2nd; desktop: left column, full height */}
+            <div className="space-y-8 order-2 lg:order-1 lg:row-span-2">
               <div className="space-y-4 text-center lg:text-left">
                 <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#033783] dark:text-blue-400 leading-tight">
                   {currentItem.title}
@@ -131,7 +131,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Right Column: Welcome & CTA */}
+            {/* Welcome + CTA — mobile: 1st; desktop: right column top */}
             <div className="space-y-10 order-1 lg:order-2">
               <div className="space-y-6">
                 <div className="inline-block px-4 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-[#033783] dark:text-blue-300 text-sm font-semibold tracking-wide uppercase">
@@ -161,37 +161,37 @@ export default function Home() {
                   View Guidelines
                 </Link>
               </div>
+            </div>
 
-              {/* Contact Information Card */}
-              <div className="pt-10 border-t border-gray-100 dark:border-gray-800">
-                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-6">Contact the Classification Office</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
-                    <div className="h-10 w-10 rounded-lg bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-                        <Phone className="h-5 w-5 text-[#033783]" />
-                    </div>
-                    <div>
-                        <p className="text-xs font-medium text-gray-400">Call Us</p>
-                        <p className="text-sm font-bold">+233 30 223 1234</p>
-                    </div>
+            {/* Contact office info — mobile: 3rd; desktop: right column below welcome */}
+            <div className="order-3 lg:order-2 pt-10 border-t border-gray-100 dark:border-gray-800 lg:border-t">
+              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-6">Contact the Classification Office</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
+                  <div className="h-10 w-10 rounded-lg bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+                    <Phone className="h-5 w-5 text-[#033783]" />
                   </div>
-                  <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
-                    <div className="h-10 w-10 rounded-lg bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-                        <Mail className="h-5 w-5 text-[#033783]" />
-                    </div>
-                    <div>
-                        <p className="text-xs font-medium text-gray-400">Email Us</p>
-                        <p className="text-sm font-bold">info@mwh.gov.gh</p>
-                    </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-400">Call Us</p>
+                    <p className="text-sm font-bold">+233 30 223 1234</p>
                   </div>
-                  <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
-                    <div className="h-10 w-10 rounded-lg bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-                        <Clock className="h-5 w-5 text-[#033783]" />
-                    </div>
-                    <div>
-                        <p className="text-xs font-medium text-gray-400">Office Hours</p>
-                        <p className="text-sm font-bold">Mon - Fri, 8:30am - 4:30pm</p>
-                    </div>
+                </div>
+                <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
+                  <div className="h-10 w-10 rounded-lg bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+                    <Mail className="h-5 w-5 text-[#033783]" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-400">Email Us</p>
+                    <p className="text-sm font-bold">info@mwh.gov.gh</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
+                  <div className="h-10 w-10 rounded-lg bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+                    <Clock className="h-5 w-5 text-[#033783]" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-400">Office Hours</p>
+                    <p className="text-sm font-bold">Mon - Fri, 8:30am - 4:30pm</p>
                   </div>
                 </div>
               </div>

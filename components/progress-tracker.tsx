@@ -12,10 +12,10 @@ import {
   ClipboardCheck 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ApplicationType } from "./application-card";
+import { Application } from "@/lib/types";
 
 interface ProgressTrackerProps {
-  application: ApplicationType;
+  application: Application;
 }
 
 const STEPS = [

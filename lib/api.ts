@@ -249,7 +249,7 @@ export const authApi = {
   },
 
   getMe: async (token: string) => {
-      return api.get<User>("/users/me", token);
+      return api.get<import("@/lib/types").MeResponse>("/users/me", token);
   },
 
   updateProfile: async (data: { full_name?: string; phone_number?: string; tutorials_completed?: boolean }, token: string) => {
@@ -270,25 +270,35 @@ export const authApi = {
   }
 };
 
-// Company Info specific functions
+// Company Info specific functions (applicationId is application UUID string)
+// getLatest uses Next.js API route so "no previous company info" returns 200 + { data: null } instead of 404
 export const companyInfoApi = {
-  get: async <T>(applicationId: number, token: string) => {
+  get: async <T>(applicationId: string, token: string) => {
     return api.get<T>(`/company-info/${applicationId}`, token);
   },
-  getLatest: async <T>(token: string) => {
-    return api.get<T>(`/company-info/latest/data`, token);
+  getLatest: async <T>(token: string): Promise<T | null> => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch("/api/company-info/latest", { method: "GET", headers });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (res.status === 401) throw new Error("Unauthorized");
+      if (res.status === 503) throw new Error((body as { error?: string })?.error || "Service unavailable");
+      throw new Error((body as { detail?: string; error?: string })?.detail || (body as { error?: string })?.error || `Request failed: ${res.status}`);
+    }
+    return ((body as { data?: T }).data ?? null) as T | null;
   },
-  create: async <T>(data: CompanyInfoUpdate & { application_id: number }, token: string) => {
+  create: async <T>(data: CompanyInfoUpdate & { application_id: string }, token: string) => {
     return api.post<T>(`/company-info/`, data, token);
   },
-  update: async <T>(applicationId: number, data: CompanyInfoUpdate, token: string) => {
+  update: async <T>(applicationId: string, data: CompanyInfoUpdate, token: string) => {
     return api.patch<T>(`/company-info/${applicationId}`, data, token);
   }
 };
 
-// Directors specific functions
+// Directors specific functions (applicationId is application UUID string)
 export const directorsApi = {
-  list: async <T>(applicationId: number, token: string) => {
+  list: async <T>(applicationId: string, token: string) => {
     return api.get<T>(`/directors/${applicationId}`, token);
   },
   getLatest: async <T>(token: string) => {
@@ -302,14 +312,14 @@ export const directorsApi = {
   }
 };
 
-// Documents specific functions
+// Documents specific functions (applicationId is application UUID string)
 export const documentsApi = {
-  list: async <T>(applicationId: number, token: string) => {
+  list: async <T>(applicationId: string, token: string) => {
     return api.get<T>(`/documents/${applicationId}`, token);
   },
-  upload: async <T>(applicationId: number, documentType: string, file: File, token: string) => {
+  upload: async <T>(applicationId: string, documentType: string, file: File, token: string) => {
     const formData = new FormData();
-    formData.append("application_id", applicationId.toString());
+    formData.append("application_id", applicationId);
     formData.append("document_type", documentType);
     formData.append("file", file);
     return api.post<T>(`/documents/upload/`, formData, token);
@@ -319,24 +329,24 @@ export const documentsApi = {
   }
 };
 
-// Applications specific functions
+// Applications specific functions (applicationId is application UUID string)
 export const applicationsApi = {
   list: async (token: string) => {
     return api.get<Application[]>("/applications/", token);
   },
-  bulkPay: async (applicationIds: number[], token: string) => {
+  bulkPay: async (applicationIds: string[], token: string) => {
     return api.post<Application[]>("/applications/pay", { application_ids: applicationIds }, token);
   },
-  getDetails: async <T>(applicationId: number, token: string) => {
+  getDetails: async <T>(applicationId: string, token: string) => {
     return api.get<T>(`/applications/${applicationId}/details`, token);
   },
-  submit: async (applicationId: number, token: string) => {
+  submit: async (applicationId: string, token: string) => {
     return api.post<Application>(`/applications/${applicationId}/submit`, {}, token);
   },
   getReusable: async (token: string): Promise<Application[]> => {
     return api.get<Application[]>("/applications/reusable", token);
   },
-  cloneData: async (applicationId: number, sourceApplicationId: number, token: string): Promise<Application> => {
+  cloneData: async (applicationId: string, sourceApplicationId: string, token: string): Promise<Application> => {
     return api.post<Application>(
       `/applications/${applicationId}/clone`,
       { source_application_id: sourceApplicationId },
@@ -344,12 +354,31 @@ export const applicationsApi = {
     );
   },
   /** Get a short-lived renewal token for the certificate renewal callback (public, no auth). */
-  getRenewalToken: async (applicationId: number): Promise<{ token: string }> => {
-    return api.get<{ token: string }>(`/applications/renewal-token?application_id=${applicationId}`);
+  getRenewalToken: async (applicationId: string): Promise<{ token: string }> => {
+    return api.get<{ token: string }>(`/applications/renewal-token?application_uid=${applicationId}`);
   },
   /** Start renewal using token from PDF link (requires auth). */
   renewFromToken: async (renewalToken: string, userToken: string): Promise<Application> => {
     return api.post<Application>("/applications/renew-from-token", { token: renewalToken }, userToken);
+  },
+  /** Fetch invoice PDF as blob for preview (e.g. after payment). Returns blob and optional filename from Content-Disposition. */
+  getInvoiceBlob: async (
+    applicationId: string,
+    token: string
+  ): Promise<{ blob: Blob; filename: string }> => {
+    const response = await fetch(`${API_BASE_URL}/applications/${applicationId}/invoice`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok)
+      throw new Error(response.status === 404 ? "Invoice not found." : "Failed to load invoice.");
+    const blob = await response.blob();
+    let filename = "invoice.pdf";
+    const disp = response.headers.get("Content-Disposition");
+    if (disp) {
+      const match = /filename="?([^";\n]+)"?/i.exec(disp);
+      if (match?.[1]) filename = match[1].trim();
+    }
+    return { blob, filename };
   },
 };
 
@@ -376,22 +405,22 @@ export const adminApi = {
     const query = params.toString() ? `?${params.toString()}` : "";
     return api.get<Application[]>(`/admin/applications${query}`, token);
   },
-  getAdminApplicationDetails: async <T>(applicationId: number, token: string) => {
+  getAdminApplicationDetails: async <T>(applicationId: string, token: string) => {
     return api.get<T>(`/admin/applications/${applicationId}/details`, token);
   },
-  updateStatus: async <T>(applicationId: number, status: string, token: string) => {
+  updateStatus: async <T>(applicationId: string, status: string, token: string) => {
     return api.patch<T>(`/admin/applications/${applicationId}/status?status=${status}`, {}, token);
   },
   getExpiringCertificates: async (token: string, days: number = 30): Promise<Application[]> => {
     return api.get<Application[]>(`/admin/renewals/expiring?days=${days}`, token);
   },
-  assignApplication: async (applicationId: number, token: string): Promise<Application> => {
+  assignApplication: async (applicationId: string, token: string): Promise<Application> => {
     return api.post<Application>(`/admin/applications/${applicationId}/assign`, {}, token);
   },
-  unassignApplication: async (applicationId: number, token: string): Promise<Application> => {
+  unassignApplication: async (applicationId: string, token: string): Promise<Application> => {
     return api.post<Application>(`/admin/applications/${applicationId}/unassign`, {}, token);
   },
-  saveApplicationAnalysis: async (applicationId: number, analysis: object, token: string): Promise<{ ok: boolean }> => {
+  saveApplicationAnalysis: async (applicationId: string, analysis: object, token: string): Promise<{ ok: boolean }> => {
     return api.patch<{ ok: boolean }>(`/admin/applications/${applicationId}/analysis`, { analysis }, token);
   },
   listTemplates: async (token: string) => {
@@ -402,7 +431,7 @@ export const adminApi = {
     formData.append("file", file);
     return api.post<any>("/admin/templates", formData, token);
   },
-  analyzeApplication: async (applicationId: number, token: string) => {
+  analyzeApplication: async (applicationId: string, token: string) => {
     try {
       const response = await fetch('/api/analyze-application', {
         method: 'POST',
@@ -491,4 +520,25 @@ export const notificationsApi = {
   markRead: async (id: number, token: string) => {
     return api.patch(`/notifications/${id}/read`, {}, token);
   }
+};
+
+export interface UpgradeCriteriaItem {
+  id: number;
+  text: string;
+  sort_order: number;
+}
+
+export const upgradeCriteriaApi = {
+  list: async (token: string): Promise<UpgradeCriteriaItem[]> => {
+    return api.get<UpgradeCriteriaItem[]>("/upgrade-criteria/", token);
+  },
+  create: async (data: { text: string; sort_order?: number }, token: string): Promise<UpgradeCriteriaItem> => {
+    return api.post<UpgradeCriteriaItem>("/upgrade-criteria/", { text: data.text, sort_order: data.sort_order ?? 0 }, token);
+  },
+  update: async (id: number, data: { text?: string; sort_order?: number }, token: string): Promise<UpgradeCriteriaItem> => {
+    return api.patch<UpgradeCriteriaItem>(`/upgrade-criteria/${id}`, data, token);
+  },
+  delete: async (id: number, token: string): Promise<void> => {
+    return api.delete(`/upgrade-criteria/${id}`, token);
+  },
 };

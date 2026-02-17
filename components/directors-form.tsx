@@ -7,11 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useApplication } from "@/contexts/ApplicationContext";
 import { toast } from "sonner";
-import { ApplicationType } from "./application-card";
+import { Application } from "@/lib/types";
 import { Trash2, UserPlus, Loader2 } from "lucide-react";
 
 interface DirectorsFormProps {
-  application: ApplicationType;
+  application: Application;
   onSuccess: () => void;
 }
 
@@ -44,13 +44,17 @@ export function DirectorsForm({ application, onSuccess }: DirectorsFormProps) {
     loadDirectors();
   }, [application.id]);
 
-  const loadDirectors = async () => {
-    setLoading(true);
+  const dedupeById = (list: Director[]) =>
+    Array.from(new Map(list.map((d) => [d.id, d])).values());
+
+  const loadDirectors = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
         const data = await getDirectors(application.id);
-        
+        const unique = dedupeById(data);
+
         // If current app is empty, check for latest from previous apps
-        if (data.length === 0) {
+        if (unique.length === 0 && !silent) {
             const latestData = await getLatestDirectors();
             if (latestData && latestData.length > 0) {
                 // Auto-import them
@@ -64,19 +68,18 @@ export function DirectorsForm({ application, onSuccess }: DirectorsFormProps) {
                     });
                 }
                 toast.info("Directors information from your previous application has been auto-filled.");
-                // Refresh local list
                 const refreshed = await getDirectors(application.id);
-                setDirectors(refreshed);
+                setDirectors(dedupeById(refreshed));
             } else {
                 setDirectors([]);
             }
         } else {
-            setDirectors(data);
+            setDirectors(unique);
         }
     } catch (err) {
         console.error(err);
     } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
     }
   };
 
@@ -102,7 +105,7 @@ export function DirectorsForm({ application, onSuccess }: DirectorsFormProps) {
             phone_number: "",
             email: "",
         }); // Reset form
-        loadDirectors(); // Reload list
+        loadDirectors(true); // Silent reload
     } catch (err: any) {
         toast.error(err.message || "Failed to add director");
     } finally {
@@ -114,7 +117,7 @@ export function DirectorsForm({ application, onSuccess }: DirectorsFormProps) {
       try {
           await removeDirector(id);
           toast.success("Director removed");
-          loadDirectors();
+          loadDirectors(true); // Silent reload
       } catch (err: any) {
           toast.error("Failed to remove director");
       }

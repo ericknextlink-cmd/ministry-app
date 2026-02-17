@@ -28,26 +28,26 @@ interface ApplicationContextType {
   refreshApplications: () => Promise<void>;
   refreshUser: () => Promise<void>;
   createApplication: (data: { certificate_type: Application["certificate_type"]; description?: string }) => Promise<Application>;
-  renewApplication: (id: number) => Promise<Application>;
-  cancelApplication: (id: number) => Promise<Application>;
-  updateApplication: (id: number, data: Partial<Application>) => Promise<Application>;
-  saveCompanyInfo: (applicationId: number, data: CompanyInfoUpdate) => Promise<void>;
+  renewApplication: (id: string) => Promise<Application>;
+  cancelApplication: (id: string) => Promise<Application>;
+  updateApplication: (id: string, data: Partial<Application>) => Promise<Application>;
+  saveCompanyInfo: (applicationId: string, data: CompanyInfoUpdate) => Promise<void>;
   getLatestCompanyInfo: () => Promise<CompanyInfo | null>;
-  addDirector: (applicationId: number, data: Omit<DirectorCreate, 'application_id'>) => Promise<void>;
-  getDirectors: (applicationId: number) => Promise<Director[]>;
+  addDirector: (applicationId: string, data: Omit<DirectorCreate, 'application_id'>) => Promise<void>;
+  getDirectors: (applicationId: string) => Promise<Director[]>;
   getLatestDirectors: () => Promise<Director[]>;
   removeDirector: (directorId: number) => Promise<void>;
-  uploadDocument: (applicationId: number, documentType: string, file: File) => Promise<void>;
-  getDocuments: (applicationId: number) => Promise<Document[]>;
+  uploadDocument: (applicationId: string, documentType: string, file: File) => Promise<void>;
+  getDocuments: (applicationId: string) => Promise<Document[]>;
   removeDocument: (documentId: number) => Promise<void>;
   loading: boolean;
   error: string | null;
-  getProgressForApp: (applicationId: number) => ApplicationProgress | null;
-  getCompletionPercentage: (applicationId: number) => number;
+  getProgressForApp: (applicationId: string) => ApplicationProgress | null;
+  getCompletionPercentage: (applicationId: string) => number;
 }
 
 interface ApplicationProgress {
-  applicationId: number;
+  applicationId: string;
   steps: {
     apply: boolean;
     "select-class": boolean;
@@ -107,8 +107,11 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
   const refreshUser = useCallback(async () => {
     if (!userToken) return;
     try {
-      const userData = await authApi.getMe(userToken);
-      setUser(userData);
+      const meData = await authApi.getMe(userToken);
+      setUser(meData);
+      if (Array.isArray(meData.applications)) {
+        setApplications(meData.applications);
+      }
     } catch (err) {
       console.warn("refreshUser failed:", err);
     }
@@ -127,19 +130,21 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
     return unregister;
   }, []);
 
-  // Load token from localStorage on initial load and fetch applications so dashboard has data right away
+  // Load token from localStorage on initial load; use /me applications when present so we don't need a separate applications request
   useEffect(() => {
     const initializeAuth = async () => {
       const token = localStorage.getItem("access_token");
       if (token) {
         try {
-          // Verify token validity by fetching user
-          const userData = await authApi.getMe(token);
+          const meData = await authApi.getMe(token);
           setUserToken(token);
-          setUser(userData);
+          setUser(meData);
           setIsAuthenticated(true);
-          // Fetch applications immediately so dashboard shows them without waiting for mount
-          await fetchApplications(token);
+          if (Array.isArray(meData.applications)) {
+            setApplications(meData.applications);
+          } else {
+            await fetchApplications(token);
+          }
         } catch (error) {
           // Token is invalid - clear it but don't redirect here (let global handler do it)
           localStorage.removeItem("access_token");
@@ -164,37 +169,36 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
       setUserToken(response.access_token);
       setIsAuthenticated(true);
       
-      // Fetch user details immediately after login
-      const userData = await authApi.getMe(response.access_token);
-      setUser(userData);
-
-      await fetchApplications(); 
-      return userData;
+      const meData = await authApi.getMe(response.access_token);
+      setUser(meData);
+      if (Array.isArray(meData.applications)) {
+        setApplications(meData.applications);
+      } else {
+        await fetchApplications();
+      }
+      return meData;
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
-      // Business logic errors (validation, unverified email, etc.) are expected
-      // Only log unexpected errors or use warn for expected ones
-      const isExpectedError = error.message.toLowerCase().includes('not verified') || 
-                               error.message.toLowerCase().includes('invalid') ||
-                               error.message.toLowerCase().includes('credentials') ||
-                               error.message.toLowerCase().includes('password');
-      
+      const msg = error.message || "Failed to log in.";
+      const isExpectedError = msg.toLowerCase().includes('not verified') ||
+        msg.toLowerCase().includes('invalid') ||
+        msg.toLowerCase().includes('credentials') ||
+        msg.toLowerCase().includes('password');
+      const isNetworkError = msg === "Failed to fetch" || msg.toLowerCase().includes('network') || msg.toLowerCase().includes('load failed');
+
       if (isExpectedError) {
-        console.warn("login: Expected authentication failure", {
-          error: error.message,
-          email
-        });
+        console.warn("login: Expected authentication failure", { error: msg, email });
+      } else if (isNetworkError) {
+        console.warn("login: Backend unreachable (is it running?)", { message: msg });
       } else {
-        console.error("login: Unexpected login error", {
-          message: error.message,
-          email,
-          error: error,
-          stack: error.stack
-        });
+        console.error("login: Unexpected login error", { message: msg, email, error });
       }
-      
-      setError(error.message || "Failed to log in.");
-      throw error;
+
+      const userMessage = isNetworkError
+        ? "Cannot reach the server. Please check that the backend is running (e.g. on port 8000) and try again."
+        : msg;
+      setError(userMessage);
+      throw new Error(userMessage);
     } finally {
       setLoading(false);
     }
@@ -263,7 +267,7 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
     }
   }, [userToken]);
 
-  const renewApplication = useCallback(async (id: number) => {
+  const renewApplication = useCallback(async (id: string) => {
     if (!userToken) {
       const error = new Error("Not authenticated.");
       console.error("renewApplication: Authentication error", error);
@@ -288,7 +292,7 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
     }
   }, [userToken]);
 
-  const cancelApplication = useCallback(async (id: number) => {
+  const cancelApplication = useCallback(async (id: string) => {
     if (!userToken) {
       const error = new Error("Not authenticated.");
       console.error("cancelApplication: Authentication error", error);
@@ -315,7 +319,7 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
     }
   }, [userToken]);
 
-  const updateApplication = useCallback(async (id: number, data: Partial<Application>) => {
+  const updateApplication = useCallback(async (id: string, data: Partial<Application>) => {
     if (!userToken) {
       const error = new Error("Not authenticated.");
       console.error("updateApplication: Authentication error", error);
@@ -343,7 +347,7 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
     }
   }, [userToken]);
 
-  const saveCompanyInfo = useCallback(async (applicationId: number, data: CompanyInfoUpdate) => {
+  const saveCompanyInfo = useCallback(async (applicationId: string, data: CompanyInfoUpdate) => {
     if (!userToken) {
       const error = new Error("Not authenticated.");
       console.error("saveCompanyInfo: Authentication error", error);
@@ -358,7 +362,7 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
         } catch (err) {
             const error = err instanceof Error ? err : new Error(String(err));
             if (error.message?.includes("404") || error.message?.includes("not found")) {
-                 await companyInfoApi.create<CompanyInfo>({ ...data, application_id: applicationId } as CompanyInfoUpdate & { application_id: number }, userToken);
+                 await companyInfoApi.create<CompanyInfo>({ ...data, application_id: applicationId } as CompanyInfoUpdate & { application_id: string }, userToken);
             } else {
                 console.error("saveCompanyInfo: Failed to get/update company info", {
                   error: error.message,
@@ -410,7 +414,7 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
       }
   }, [userToken]);
 
-  const addDirector = useCallback(async (applicationId: number, data: Omit<DirectorCreate, 'application_id'>) => {
+  const addDirector = useCallback(async (applicationId: string, data: Omit<DirectorCreate, 'application_id'>) => {
       if (!userToken) {
         const error = new Error("Not authenticated.");
         console.error("addDirector: Authentication error", error);
@@ -433,7 +437,7 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
       }
   }, [userToken]);
 
-  const getDirectors = useCallback(async (applicationId: number): Promise<Director[]> => {
+  const getDirectors = useCallback(async (applicationId: string): Promise<Director[]> => {
       if (!userToken) return [];
       try {
           return await directorsApi.list<Director[]>(applicationId, userToken);
@@ -467,7 +471,7 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
       }
   }, [userToken]);
 
-  const uploadDocument = useCallback(async (applicationId: number, documentType: string, file: File) => {
+  const uploadDocument = useCallback(async (applicationId: string, documentType: string, file: File) => {
       if (!userToken) {
         const error = new Error("Not authenticated.");
         console.error("uploadDocument: Authentication error", error);
@@ -492,7 +496,7 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
       }
   }, [userToken]);
 
-  const getDocuments = useCallback(async (applicationId: number): Promise<Document[]> => {
+  const getDocuments = useCallback(async (applicationId: string): Promise<Document[]> => {
       if (!userToken) return [];
       try {
           return await documentsApi.list<Document[]>(applicationId, userToken);
@@ -528,7 +532,7 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
 
 
   // Placeholder for progress tracking - will need to be adapted to backend
-  const getProgressForApp = useCallback((applicationId: number): ApplicationProgress | null => {
+  const getProgressForApp = useCallback((applicationId: string): ApplicationProgress | null => {
     // This logic currently depends on `progress` state which is no longer in this context
     // You would typically derive this from `applications` fetched from backend
     // For now, returning a dummy or incomplete progress
@@ -538,15 +542,14 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
     const steps = {
       apply: true, // Assuming creation means 'apply' is done
       "select-class": app.current_step >= 2,
-      payment: app.current_step >= 3,
-      "company-info": app.current_step >= 4,
-      "directors-info": app.current_step >= 5,
+      "company-info": app.current_step >= 4, // Company before payment
+      payment: app.current_step >= 5,
+      "directors-info": app.current_step >= 6,
       "upload-docs": app.current_step >= 6,
       review: app.current_step >= 7,
     };
-    
     const stepOrder: ApplicationStep[] = [
-      "apply", "select-class", "payment", "company-info", 
+      "apply", "select-class", "company-info", "payment",
       "directors-info", "upload-docs", "review"
     ];
     let lastCompletedStep: ApplicationStep | null = null;
@@ -565,7 +568,7 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
     };
   }, [applications]);
 
-  const getCompletionPercentage = useCallback((applicationId: number): number => {
+  const getCompletionPercentage = useCallback((applicationId: string): number => {
     const appProgress = getProgressForApp(applicationId);
     if (!appProgress) return 0;
 
@@ -576,11 +579,8 @@ export function ApplicationProvider({ children }: { children: React.ReactNode })
   }, [getProgressForApp]);
 
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchApplications();
-    }
-  }, [isAuthenticated, fetchApplications]);
+  // Applications are fetched inside initializeAuth (when token exists) and after login().
+  // No separate fetch on isAuthenticated change, so we only show one loading: "Initializing Secure Session...".
 
   if (initialLoading) {
     return <Loader text="Initializing Secure Session..." />;
