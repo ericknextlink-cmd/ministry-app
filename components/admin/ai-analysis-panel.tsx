@@ -138,6 +138,8 @@ export interface AnalysisResult {
   verdict: 'approve' | 'reject' | 'needs_review';
   confidence: number;
   summary: string;
+  /** Brief summary for the Summary collapsible (keep short). */
+  briefSummary?: string;
   detailedReport: {
     companyInfo: {
       status: 'complete' | 'incomplete' | 'issues';
@@ -348,7 +350,7 @@ export function AIAnalysisPanel({ applicationId, userToken, initialAnalysis }: A
             </button>
             {expandedSections.has('summary') && (
               <div className="p-4 pt-0 border-t text-gray-700 dark:text-gray-300">
-                {formatAnalysisText(analysis.summary)}
+                {formatAnalysisText(analysis.briefSummary ?? (analysis.summary.length > 320 ? analysis.summary.slice(0, 320).trim().replace(/\s+\S*$/, '') + '…' : analysis.summary))}
               </div>
             )}
           </div>

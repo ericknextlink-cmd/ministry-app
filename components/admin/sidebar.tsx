@@ -15,6 +15,7 @@ import {
   Users, 
   FileClock,
   FileSignature,
+  PenTool,
   ChevronLeft,
   ChevronRight,
   ListChecks
@@ -52,6 +53,7 @@ export function AdminSidebar({ isOpen, isCollapsed, onClose, onToggleCollapse }:
   if (user?.role === "super_admin") {
       finalNavItems.push({ name: "User Management", href: "/admin/superadmin", icon: Users });
       finalNavItems.push({ name: "Certificate Templates", href: "/admin/superadmin/templates", icon: FileSignature });
+      finalNavItems.push({ name: "Signatures", href: "/admin/superadmin/signatures", icon: PenTool });
       finalNavItems.push({ name: "Audit Logs", href: "/admin/superadmin/audit", icon: FileClock });
   }
 

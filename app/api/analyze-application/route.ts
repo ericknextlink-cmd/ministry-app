@@ -43,18 +43,36 @@ export async function POST(req: Request) {
 
     const documents = applicationDetails.documents || [];
     if (documents.length === 0) {
+      const companyInfo = applicationDetails.company_info as Record<string, string> | null | undefined;
+      const directorsList = (applicationDetails.directors || []) as Array<{ name: string; position?: string }>;
+      const companyFindings: string[] = companyInfo
+        ? [
+            companyInfo.company_name && `Company name: ${companyInfo.company_name}`,
+            companyInfo.registration_number && `Registration number: ${companyInfo.registration_number}`,
+            (companyInfo.address || companyInfo.city) && `Address: ${[companyInfo.address, companyInfo.city, companyInfo.country].filter(Boolean).join(', ')}`,
+            companyInfo.phone_number && `Phone: ${companyInfo.phone_number}`,
+            companyInfo.email && `Email: ${companyInfo.email}`,
+          ].filter(Boolean) as string[]
+        : ['Company information not provided'];
+      const directorsFindings: string[] = directorsList.length > 0
+        ? directorsList.map((d) => `${d.name}${d.position ? ` — ${d.position}` : ''}`)
+        : ['No directors information provided'];
       return NextResponse.json({
         success: true,
         analysis: {
           verdict: 'needs_review',
           confidence: 0,
           summary: 'No documents found for analysis.',
+          briefSummary: 'No documents found for analysis.',
           detailedReport: {
+            companyInfo: { status: companyInfo ? 'complete' : 'incomplete', findings: companyFindings },
+            directors: { status: directorsList.length > 0 ? 'complete' : 'incomplete', findings: directorsFindings },
             documents: {
               status: 'incomplete',
               findings: ['No documents uploaded for this application.'],
               documentAnalysis: [],
             },
+            compliance: { status: 'partial', findings: ['No documents to assess.'] },
           },
           recommendations: ['Please upload required documents before analysis.'],
         },
@@ -168,6 +186,37 @@ export async function POST(req: Request) {
     const allDocumentsValid = documentAnalysisResults.every((doc: DocumentAnalysisResult) => doc.status === 'valid');
     const hasFailures = failedAnalyses.length > 0;
 
+    const fullSummary = combinedAnalysis || (hasFailures ? 'Some documents could not be analyzed. Please try again later.' : 'Document analysis completed.');
+    const briefSummaryMaxLen = 320;
+    const briefSummary = fullSummary.length <= briefSummaryMaxLen
+      ? fullSummary
+      : fullSummary.slice(0, briefSummaryMaxLen).trim().replace(/\s+\S*$/, '') + '…';
+
+    const companyInfo = applicationDetails.company_info as Record<string, string> | null | undefined;
+    const companyFindings: string[] = companyInfo
+      ? [
+          companyInfo.company_name && `Company name: ${companyInfo.company_name}`,
+          companyInfo.registration_number && `Registration number: ${companyInfo.registration_number}`,
+          (companyInfo.address || companyInfo.city) && `Address: ${[companyInfo.address, companyInfo.city, companyInfo.country].filter(Boolean).join(', ')}`,
+          companyInfo.phone_number && `Phone: ${companyInfo.phone_number}`,
+          companyInfo.email && `Email: ${companyInfo.email}`,
+        ].filter(Boolean) as string[]
+      : ['Company information not provided'];
+
+    const directorsList = (applicationDetails.directors || []) as Array<{ name: string; position?: string }>;
+    const directorsFindings: string[] = directorsList.length > 0
+      ? directorsList.map((d) => `${d.name}${d.position ? ` — ${d.position}` : ''}`)
+      : ['No directors information provided'];
+
+    const validCount = documentAnalysisResults.filter((d) => d.status === 'valid').length;
+    const totalCount = documentAnalysisResults.length;
+    const complianceFindings: string[] = totalCount > 0
+      ? [
+          `${validCount} of ${totalCount} document(s) passed review.`,
+          ...(validCount < totalCount ? ['One or more documents need review or had analysis errors.'] : []),
+        ]
+      : ['No documents to assess.'];
+
     const analysisResult = {
       verdict: anyCompanyMismatch
         ? 'needs_review'
@@ -177,24 +226,25 @@ export async function POST(req: Request) {
             ? 'needs_review'
             : 'approve',
       confidence: allDocumentsValid ? 0.9 : hasFailures ? 0.5 : 0.7,
-      summary: combinedAnalysis || (hasFailures ? 'Some documents could not be analyzed. Please try again later.' : 'Document analysis completed.'),
+      summary: fullSummary,
+      briefSummary,
       detailedReport: {
         companyInfo: {
-          status: applicationDetails.company_info ? 'complete' : 'incomplete',
-          findings: applicationDetails.company_info ? [] : ['Company information not provided'],
+          status: companyInfo ? 'complete' : 'incomplete',
+          findings: companyFindings,
         },
         directors: {
-          status: (applicationDetails.directors || []).length > 0 ? 'complete' : 'incomplete',
-          findings: (applicationDetails.directors || []).length > 0 ? [] : ['No directors information provided'],
+          status: directorsList.length > 0 ? 'complete' : 'incomplete',
+          findings: directorsFindings,
         },
         documents: {
           status: allDocumentsValid ? 'complete' : hasFailures ? 'issues' : 'complete',
-          findings: failedAnalyses.map((f) => f.error || 'Analysis failed'),
+          findings: failedAnalyses.length > 0 ? failedAnalyses.map((f: { error?: string }) => f.error || 'Analysis failed') : ['All submitted documents were analyzed.'],
           documentAnalysis: documentAnalysisResults,
         },
         compliance: {
           status: allDocumentsValid ? 'compliant' : 'partial',
-          findings: [],
+          findings: complianceFindings,
         },
       },
       recommendations: anyCompanyMismatch

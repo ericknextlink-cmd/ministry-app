@@ -431,6 +431,17 @@ export const adminApi = {
     formData.append("file", file);
     return api.post<any>("/admin/templates", formData, token);
   },
+  listSignatures: async (token: string) => {
+    return api.get<any[]>("/admin/signatures", token);
+  },
+  uploadSignature: async (file: File, token: string) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api.post<any>("/admin/signatures", formData, token);
+  },
+  deleteSignature: async (filename: string, token: string) => {
+    return api.delete<any>(`/admin/signatures/${encodeURIComponent(filename)}`, token);
+  },
   analyzeApplication: async (applicationId: string, token: string) => {
     try {
       const response = await fetch('/api/analyze-application', {

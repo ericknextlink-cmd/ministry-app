@@ -150,7 +150,8 @@ export default function ResetPasswordPage() {
                   <Image
                     src="/ministry-1.png"
                     alt="Ministry Logo"
-                    fill
+                    width={120}
+                    height={120}
                     className="object-contain"
                   />
                 </div>
