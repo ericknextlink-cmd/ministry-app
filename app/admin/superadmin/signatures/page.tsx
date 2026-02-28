@@ -8,9 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { PenTool, Type, Upload, Trash2, Loader2 } from "lucide-react";
 
+// System/Supabase use signature1.png, signature2.png; UI shows Chief Director / Minister only.
 const SIGNATURE_SLOTS = [
-  { id: "signature1.png", label: "Signature 1" },
-  { id: "signature2.png", label: "Signature 2" },
+  { id: "signature1.png", label: "Chief Director" },
+  { id: "signature2.png", label: "Minister" },
 ] as const;
 
 type Mode = "type" | "draw" | "upload" | null;
@@ -72,7 +73,8 @@ export default function SignaturesPage() {
     setUploadingSlot(slotId);
     try {
       await adminApi.uploadSignature(renamed, token);
-      toast.success(`${slotId} updated.`);
+      const slotLabel = SIGNATURE_SLOTS.find((s) => s.id === slotId)?.label ?? slotId;
+      toast.success(`${slotLabel} signature updated.`);
       await fetchSignatures();
       setMode(null);
       setActiveSlot(null);
@@ -110,7 +112,8 @@ export default function SignaturesPage() {
         setUploadingSlot(slotId);
         try {
           await adminApi.uploadSignature(file, token);
-          toast.success(`${slotId} updated.`);
+          const slotLabel = SIGNATURE_SLOTS.find((s) => s.id === slotId)?.label ?? slotId;
+          toast.success(`${slotLabel} signature updated.`);
           await fetchSignatures();
           setMode(null);
           setActiveSlot(null);
@@ -183,7 +186,8 @@ export default function SignaturesPage() {
         const file = new File([blob], slotId, { type: "image/png" });
         try {
           await adminApi.uploadSignature(file, token);
-          toast.success(`${slotId} updated.`);
+          const slotLabel = SIGNATURE_SLOTS.find((s) => s.id === slotId)?.label ?? slotId;
+          toast.success(`${slotLabel} signature updated.`);
           await fetchSignatures();
           setMode(null);
           setActiveSlot(null);
@@ -201,9 +205,10 @@ export default function SignaturesPage() {
   const handleDelete = async (filename: string) => {
     const token = localStorage.getItem("access_token");
     if (!token) return;
+    const slotLabel = SIGNATURE_SLOTS.find((s) => s.id === filename)?.label ?? "Signature";
     try {
       await adminApi.deleteSignature(filename, token);
-      toast.success("Signature removed.");
+      toast.success(`${slotLabel} signature removed.`);
       await fetchSignatures();
     } catch (e) {
       toast.error("Delete failed.");
@@ -223,7 +228,7 @@ export default function SignaturesPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Certificate Signatures</h1>
         <p className="text-gray-500 dark:text-gray-400 mt-1">
-          Manage signatures used on certificates. Upload to Supabase (templates/signatures/). Add via typed text, freehand draw, or image upload.
+          Manage Chief Director and Minister signatures used on certificates. Add via typed text, freehand draw, or image upload.
         </p>
       </div>
 
@@ -253,7 +258,7 @@ export default function SignaturesPage() {
                   <>
                     <div className="border rounded-lg bg-gray-50 dark:bg-gray-900 min-h-[120px] flex items-center justify-center p-4">
                       {hasFile ? (
-                        <p className="text-sm text-gray-500">Stored: {id}</p>
+                        <p className="text-sm text-gray-500">Stored: {label}</p>
                       ) : (
                         <p className="text-sm text-gray-500">No signature set</p>
                       )}

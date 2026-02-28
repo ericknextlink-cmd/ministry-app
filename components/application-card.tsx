@@ -79,7 +79,7 @@ export function ApplicationCard({ application, certificateType, onClick }: Appli
           </div>
           <div className="absolute inset-0 flex flex-col justify-between p-4 sm:p-5 md:p-5 lg:p-6">
             <div className={`flex-1 min-w-0 overflow-hidden ${certificateType === "building" ? "scale-[0.82] sm:scale-[0.88] md:scale-[0.85] lg:scale-[0.88] xl:scale-[0.95] origin-top-left" : "scale-[0.9] sm:scale-[0.95] md:scale-[0.92] lg:scale-[0.95] xl:scale-[1] origin-top-left"}`}>
-              <h3 className="text-base sm:text-lg md:text-lg font-semibold text-white flex items-center gap-2">
+              <h3 className="text-sm sm:text-lg md:text-lg font-semibold text-white flex items-center gap-2">
                 <span className="truncate max-w-[85%] sm:max-w-none">{name}</span>
                 <div className="relative h-4 w-4 sm:h-5 sm:w-5 shrink-0">
                   <Image src={icon} alt="" fill className="object-contain" sizes="(max-width: 640px) 16px, 20px" />
@@ -321,8 +321,8 @@ export function ApplicationCard({ application, certificateType, onClick }: Appli
 
         {/* Content Overlay - consistent placement like desktop */}
         <div className="absolute inset-0 flex flex-col justify-between p-4 sm:p-5 md:p-5 lg:p-6">
-          {/* Top: title + checkmark */}
-          <div className="flex items-start justify-between gap-2 min-h-0">
+          {/* Top: title + checkmark — same baseline on mobile, checkmark slightly right */}
+          <div className="flex items-center justify-between gap-2 min-h-0 pt-1 sm:pt-0">
             <div
               className={`flex-1 min-w-0 overflow-hidden ${
                 application.certificate_type === "building" || application.certificate_type === "civil"
@@ -330,7 +330,7 @@ export function ApplicationCard({ application, certificateType, onClick }: Appli
                   : "scale-[0.9] sm:scale-[0.95] md:scale-[0.92] lg:scale-[0.95] xl:scale-[1] origin-top-left"
               }`}
             >
-              <h3 className="text-base sm:text-lg md:text-lg font-semibold text-white flex items-center gap-2">
+              <h3 className="text-sm sm:text-lg md:text-lg font-semibold text-white flex items-center gap-2">
                 <span className="truncate max-w-[85%] sm:max-w-none">{name}</span>
                 <div className="relative h-4 w-4 sm:h-5 sm:w-5 shrink-0">
                   <Image
@@ -346,7 +346,7 @@ export function ApplicationCard({ application, certificateType, onClick }: Appli
                 <p className="text-white/90 text-xs sm:text-sm mt-0.5 font-medium">{application.certificate_class}</p>
               )}
             </div>
-            <div className="shrink-0 w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center">
+            <div className="shrink-0 w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center ml-1">
               <Image
                 src="/circle-check.png"
                 alt=""
@@ -357,9 +357,11 @@ export function ApplicationCard({ application, certificateType, onClick }: Appli
             </div>
           </div>
 
-          {/* Bottom: status button - aligned like desktop */}
-          <div className="flex items-end justify-start w-full">
-            {getStatusButton()}
+          {/* Bottom: status button — scaled on mobile so it stays inside card */}
+          <div className="flex items-end justify-start w-full pb-0.5 sm:pb-0">
+            <div className="scale-[0.85] sm:scale-90 md:scale-95 lg:scale-100 origin-bottom-left">
+              {getStatusButton()}
+            </div>
           </div>
         </div>
       </div>

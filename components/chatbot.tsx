@@ -248,14 +248,14 @@ export function Chatbot() {
       {/* Floating: pill (#033783) when closed (robot in white circle + text on desktop; smaller pill on mobile); circle with X when open */}
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-8 right-14 z-10000 flex items-center justify-center overflow-hidden text-white shadow-xl transition-colors hover:opacity-90 scale-[1.2]"
+        className="fixed bottom-8 right-14 z-10000 flex items-center justify-center overflow-hidden text-white shadow-xl transition-colors hover:opacity-90"
         style={{ backgroundColor: "#033783" }}
         animate={{
-          width: isOpen ? 56 : isMobile ? 52 : 200,
-          height: isOpen ? 56 : isMobile ? 48 : 56,
+          width: isOpen ? 56 : isMobile ? 136 : 200,
+          height: isOpen ? 56 : 56,
           borderRadius: isOpen ? "50%" : 9999,
-          paddingLeft: isOpen ? 0 : isMobile ? 12 : 20,
-          paddingRight: isOpen ? 0 : isMobile ? 12 : 20,
+          paddingLeft: isOpen ? 0 : isMobile ? 14 : 20,
+          paddingRight: isOpen ? 0 : isMobile ? 14 : 20,
         }}
         transition={{ type: "spring", stiffness: 400, damping: 30 }}
         whileTap={{ scale: 0.95 }}
@@ -282,9 +282,10 @@ export function Chatbot() {
               transition={{ duration: 0.15 }}
               className="flex items-center gap-2 sm:gap-3 h-full"
             >
-              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-white flex items-center justify-center shrink-0 relative right-4">
+              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-white flex items-center justify-center shrink-0 sm:relative sm:right-4">
                 <Image src="/bot-image.svg" alt="" width={isMobile ? 28 : 32} height={isMobile ? 28 : 32} className="object-contain" />
               </div>
+              <span className="sm:hidden text-sm font-semibold leading-tight whitespace-nowrap">Chat</span>
               <div className="hidden sm:flex flex-col items-start text-left">
                 <span className="text-sm font-semibold leading-tight">Support Bot</span>
                 <span className="flex items-center gap-1.5 text-xs font-medium text-white/90">
